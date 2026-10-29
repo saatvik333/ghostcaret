@@ -1,6 +1,6 @@
 # open-flowtype architecture
 
-Status: draft plan, 2026-10-30. Nothing here is implemented yet. The product behaviour this design must deliver is in [product.md](product.md).
+Status: draft plan, 2026-10-30. Nothing here is implemented yet. The product behaviour this design must deliver is in [product.md](product.md), and the measured targets it must meet are in [quality.md](quality.md).
 
 ## Overview
 
@@ -133,16 +133,27 @@ When the cursor is in the middle of a word, the local model backs off to the sta
 
 ### Local inference
 
-open-flowtype runs [llama.cpp](https://github.com/ggml-org/llama.cpp) through Rust bindings, with the GPU backend each platform supports: Metal on macOS, Vulkan or CUDA on Windows and Linux, and CPU or Vulkan on Android.
+open-flowtype runs [llama.cpp](https://github.com/ggml-org/llama.cpp) through Rust bindings, with the GPU backend each platform supports: Metal on macOS, Vulkan or CUDA on Windows and Linux, and CPU or Vulkan on Android. The CPU code path is chosen at run time for the processor's instruction set, so one build runs at full speed on every machine.
 
-- One model stays loaded. It is loaded on first use, with progress shown in the tray, and unloaded after a period of idleness the user can set.
-- The KV cache is reused up to the first token that changed, and the segment order above keeps that point near the end.
+These are used from the start:
+
+- One model stays loaded. It is memory-mapped, so loading is fast and the OS can page it. It is loaded on first use, with progress in the tray, and unloaded after a period of idleness the user can set, or when the OS reports memory pressure.
+- The KV cache is reused up to the first token that changed, and the segment order above keeps that point near the end. A keystroke decodes only the new tokens.
 - While the user types, a short debounce pre-reads the prompt into the cache, so a pause only has to generate.
-- Cancellation is checked between tokens.
+- Generation stops at the length mode's boundary plus the lookahead. No token is generated that could never be shown. Cancellation is checked between tokens.
+- Flash attention is enabled wherever the backend supports it.
+- Each model uses the smallest weight quantization that loses no keystroke savings on the benchmark.
+- Alternatives are decoded as parallel sequences in one batch, after copying the KV sequence, so three alternatives cost little more than one.
 - If a decode fails, the context is recreated. If memory cannot be allocated, local inference reports itself unavailable instead of retrying in a loop.
-- Alternatives copy the KV sequence and branch on the most likely first tokens.
 
-At the 16 GB floor the standard model is about 3 GB.
+These are measured in the engine spike, and adopted only where the benchmark shows a gain with no loss of quality:
+
+- Speculative decoding. llama.cpp offers [several kinds](https://github.com/ggml-org/llama.cpp/blob/master/docs/speculative.md): n-gram drafting from the context, a small draft model, and EAGLE-3. N-gram drafting costs almost nothing and suits text that repeats words from the conversation.
+- A quantized KV cache (the `type_k` and `type_v` context parameters, marked experimental in `llama.h`).
+- Context length, thread count, and placement on performance or efficiency cores, per platform.
+- Saving the cache for the stable segments to disk, so that a restart begins warm.
+
+Base models, rather than chat-tuned ones, are the first candidates, because the task is continuing the user's own text; the benchmark also tests chat models to confirm this. The first shortlist, all Apache-2.0: [Qwen3.5 Base](https://huggingface.co/Qwen/Qwen3.5-2B-Base) at 0.8B, 2B and 4B, and [Gemma 4](https://huggingface.co/google/gemma-4-E4B) E2B and E4B. The benchmark picks the small and the standard model. At the 16 GB floor the standard model is about 3 GB.
 
 Model files come from a curated manifest shipped inside the signed app. Each entry has the URL, size, SHA-256 and license. Downloads resume after interruption, and a file is used only after its hash matches.
 
@@ -154,6 +165,9 @@ Each provider adapter declares what it supports: streaming, token probabilities,
 - Flow Draft requests retry transient failures (rate limits, overload, transport errors) a bounded number of times, within an end-to-end deadline.
 - A per-minute client limit always applies, and the user can add a daily cap.
 - Keys are read from the OS keychain at call time. They never enter prompts or logs, and never appear in the "What was sent" view.
+- When a text field gets focus, the HTTPS connection to the provider is opened and kept alive, so the first request skips the connection handshake.
+- Requests ask for token probabilities where the provider offers them, and set the output limit from the length mode, so no tokens are paid for that cannot be shown.
+- The stable-first segment order also matches how provider prompt caches work, so repeated requests reuse the cached prefix where the provider supports it.
 
 ### Flow Draft
 
@@ -215,6 +229,26 @@ It also respects clipboard markers that password managers set: `org.nspasteboard
 
 Flatpak is not planned for the first Linux release, because the input-method plugin and AT-SPI access have to live on the host.
 
+## Performance design
+
+The targets in [quality.md](quality.md) shape the design in these ways.
+
+The keystroke path stays minimal. The key gate reads a small state (is a suggestion showing, which keys are bound) from atomics, decides, and returns. It never allocates, locks, logs, or waits on the engine. Everything else happens on other threads after the key has been passed on or consumed.
+
+Integration with the OS is driven by events. Focus, value and selection changes arrive as OS notifications; nothing polls on a timer. Element handles are cached per focused field. Text is re-read only when a notification or a keystroke says it changed, and the edit is applied to the cached copy where the platform reports ranges. Offsets are converted between the platform's units (UTF-16 on macOS, Windows, Android and iOS) and UTF-8 once, at the boundary.
+
+Rendering does as little as possible. The suggestion window is created once and reused. An update changes only its text and position, and lands within one frame. There is no animation by default, which also respects reduced-motion settings.
+
+Work runs only while the user types. Prediction starts after a keystroke and stops at the boundary or at the next keystroke. When the user is not typing, open-flowtype has no running timers, and its process sleeps until the OS wakes it.
+
+Memory follows the OS. The model unloads on memory-pressure signals (macOS memory pressure, Android `onTrimMemory`, Windows low-memory notifications) and when idle. Settings and setup windows release their web views when closed.
+
+On battery, an optional low-power mode switches to the small model and a longer pause before predicting.
+
+Release builds use link-time optimization and a single codegen unit, and strip symbols into separate debug files.
+
+Each request records stage timings in release builds: read, filter, build, decode, render. They are cheap to collect, appear in the debug view, and can be exported for bug reports. They never leave the machine on their own.
+
 ## Security boundaries
 
 - No network listener. The only local channel is the Linux plugin socket, with a same-user peer check.
@@ -224,35 +258,9 @@ Flatpak is not planned for the first Linux release, because the input-method plu
 - Model files are verified against SHA-256 hashes from the manifest inside the signed app. Updates are signed.
 - Clean-room rule: no code, prompts, assets or model files are copied from closed-source products, and contributions derived from decompiling them are not accepted.
 
-## Benchmark
+## Verification
 
-`crates/bench` replays writing samples as typing. It pauses where real typists pause, asks the engine for a suggestion at each pause, and accepts the longest stretch of the suggestion that matches the real continuation, using the same word-by-word and whole-suggestion rules as the keys.
-
-It reports:
-
-- keystrokes saved;
-- the shown-but-rejected rate;
-- words accepted per suggestion;
-- latency at the median and 95th percentile;
-- for cloud providers, the cost per 1,000 words.
-
-Runs cover every combination of model, prompt template version, length mode and boldness. Corpora are public text under suitable licenses, plus the user's own writing if they opt in; that writing stays on their machine.
-
-The results set the defaults (boldness, curated models, Auto ceilings). The benchmark runs again before any change to a model, prompt template or stop rule ships.
-
-## App checklist
-
-Each platform keeps a list of about 20 apps across browser text boxes, chat, notes and documents, terminals, and email. Every app is checked for:
-
-- reading the text;
-- cursor placement;
-- taking a word, taking all, and showing more;
-- typing through a suggestion;
-- clean insertion;
-- one-step undo;
-- Flow Draft insertion.
-
-Results are recorded for each release. An app that fails placement gets the card fallback.
+The benchmark (`crates/bench`), the app checklist, the parity floor and the release gates are defined in [quality.md](quality.md).
 
 ## Spikes before the full build
 
@@ -260,10 +268,10 @@ Each spike ends in a written result.
 
 | Spike | Question | Done when |
 | --- | --- | --- |
-| Linux input method | On niri, can a plugin read surrounding text and show a suggestion inline (pre-edit) or in the panel? Can it identify the app for per-app rules? Do Chromium and Electron work with `--enable-wayland-ime`? | The display method and plugin form are chosen, with a list of apps that work |
-| Overlay | On macOS and Windows, can a Tauri window be transparent, click-through and never take focus, sit at the cursor, and update within one frame? | A choice between a Tauri webview window and a natively drawn window |
-| Engine | Latency and quality of the local model on a 16 GB machine; KV reuse; do the length cuts feel natural? | Measured latency against the targets in product.md |
-| Benchmark | A first harness with one corpus | A report comparing at least two models |
+| Linux input method | On niri, can a plugin read surrounding text and show a suggestion inline (pre-edit) or in the panel? Can it identify the app for per-app rules? Do Chromium and Electron work with `--enable-wayland-ime`? What latency does the plugin add per keystroke? | The display method and plugin form are chosen, with a list of apps that work and the plugin within the key-path budget |
+| Overlay | On macOS and Windows, can a Tauri window be transparent, click-through and never take focus, sit at the cursor, update within one frame, and stay inside the memory budget? | A choice between a Tauri webview window and a natively drawn window, backed by measurements |
+| Engine | Latency, memory and keystroke savings of the shortlisted models on the reference machines; KV reuse; whether the length cuts feel natural; each technique under evaluation | Measured results against [quality.md](quality.md), and a decision on each technique |
+| Benchmark | A first harness with one corpus | A report comparing every shortlisted model |
 
 ## Build order
 
@@ -283,6 +291,7 @@ Each spike ends in a written result.
 | 2026-10-30 | Defaults: Auto length; Tab, backtick, Alt+→; setup asks local or key; 16 GB local-model floor | See product.md |
 | 2026-10-29 | Linux through the input method on X11 and Wayland | Wayland reveals the cursor and keys only to input methods; one code path for both |
 | 2026-10-29 | Clean-room development | Avoids importing closed-source code or terms |
+| 2026-10-30 | Measured release gates in quality.md: latency, resource use, suggestion quality, parity floor | Best in class is a measured claim; nothing ships below the bar |
 
 ## Open technical decisions
 

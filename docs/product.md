@@ -6,6 +6,8 @@ open-flowtype suggests the rest of what you are typing, in any text field, on ev
 
 It is free and open source under MPL-2.0. You choose the model: a local model that runs on your own machine, or your own API key for a cloud provider. There is no account, no telemetry and no paid tier.
 
+The goal is the best predictive typing available on each platform: more accurate, faster, lighter on the machine and more private than the alternatives. [quality.md](quality.md) defines how each of those is measured, and no release ships without meeting it.
+
 ## Rules the product keeps
 
 1. Typing never waits on open-flowtype. Keystrokes reach the app at once; prediction runs beside them, and the next keystroke cancels it.
@@ -14,6 +16,7 @@ It is free and open source under MPL-2.0. You choose the model: a local model th
 4. Text stays on the device unless the user configured a cloud provider. Even then, only the context for that one request leaves, after the secret filter has run.
 5. It never sends anything for the user. Drafts and rewrites go into the text field, and the user presses send.
 6. Behaviour is the same on every platform from the user's side, even where the operating system forces a different mechanism underneath.
+7. It is light. It does no work while you are not typing, stays within published memory, battery and size budgets, and no release may be slower or heavier than the one before beyond the limits in [quality.md](quality.md).
 
 ## Comparable products
 
@@ -25,6 +28,8 @@ It is free and open source under MPL-2.0. You choose the model: a local model th
 | [MindFlow](https://github.com/simoabid/MindFlow) | MIT | Linux (IBus) | Gemini | Early project |
 
 FlowIn figures come from its [pricing page](https://flowin.so/pricing) and [FAQ](https://flowin.so/faq) as of 2026-10-29.
+
+Operating systems also ship simpler prediction of their own: [inline predictive text](https://support.apple.com/guide/mac-help/mchlp2299/mac) on macOS 14 and later, [text suggestions](https://support.microsoft.com/en-us/accessibility/windows/enable-text-suggestions-in-windows) on Windows, and phone keyboards such as Gboard. [quality.md](quality.md#side-by-side-test) compares open-flowtype against these as well.
 
 open-flowtype covers Linux, macOS, Windows, Android and iOS. Every feature runs on a local model or the user's own key. Users control suggestion length and boldness, and the reply and rewrite feature is open source too.
 
@@ -58,7 +63,7 @@ Length is the most a suggestion may show. Boldness is how sure the model must be
 
 Auto's ceiling depends on the kind of app: up to a sentence in chat apps, up to a paragraph in email, documents and notes, and one word in search boxes. Users can change the length and the ceiling for each app.
 
-Boldness is a slider from careful to bold. The benchmark sets its default position (see [architecture](architecture.md#benchmark)).
+Boldness is a slider from careful to bold. The benchmark sets its default position (see [quality.md](quality.md#benchmark)).
 
 The engine writes a little further than it shows. Taking a word or asking for more then uses text that already exists, with no new request.
 
@@ -188,20 +193,15 @@ Setup can be left and resumed at the same step.
 | No model | Neither a local model nor a key is configured |
 | Cloud unavailable | The provider failed or the daily cap was reached; shows whether the local model took over |
 
-## Quality bars
+## Quality bar
 
-These are the release criteria. The targets are starting points, and the engine spike and benchmark confirm or replace them.
+The full threshold, with every target and how it is checked, is in [quality.md](quality.md). In user terms, a release ships only when:
 
-| Bar | Target | How it is checked |
-| --- | --- | --- |
-| Typing is never slowed | The key handler decides from local state and returns without waiting on the engine | Instrumented key path; latency test while the model is busy |
-| Suggestions appear quickly | Local model: median 150 ms or less after the pause, 95th percentile 400 ms or less, on a 16 GB reference machine | Benchmark |
-| No flicker | Typing through a matching suggestion never hides and re-shows it | App checklist |
-| Few wrong guesses | The shown-but-rejected rate at default boldness stays under the benchmark threshold | Benchmark |
-| Correct placement | The suggestion sits on the cursor's line, aligned to the cursor, at the field's text size | App checklist |
-| Clean insertion | No lost or doubled characters; one undo removes an accepted chunk | App checklist |
-| User control | Every behaviour can be switched per app; pause takes effect at once | App checklist |
-| Proof | Local stats screen; a benchmark report for every release | Release review |
+- a suggestion appears within about 100 ms of the last keystroke on the reference machines, and typing is never delayed;
+- it saves more keystrokes than every alternative we can test, with an equal or lower rate of wrong guesses;
+- it uses no CPU while you are not typing, and stays within its memory and battery budgets;
+- the suggestion sits exactly at the cursor, typing through it never makes it flicker, and accepting never loses or doubles characters;
+- everything the best existing product already handles also works here.
 
 ## Not in the first release
 
