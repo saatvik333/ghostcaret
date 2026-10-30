@@ -1,0 +1,52 @@
+[package]
+name = "open-flowtype"
+description = "open-flowtype desktop and mobile app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "open_flowtype_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[features]
+default = ["local"]
+# Local inference through llama.cpp.
+local = ["dep:oft-local"]
+# GPU backends for llama.cpp.
+cuda = ["local", "oft-local?/cuda"]
+vulkan = ["local", "oft-local?/vulkan"]
+
+[build-dependencies]
+tauri-build = { version = "2.5", features = [] }
+
+[dependencies]
+oft-engine.workspace = true
+oft-cloud.workspace = true
+oft-local = { workspace = true, optional = true }
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+crossbeam-channel.workspace = true
+thiserror.workspace = true
+log.workspace = true
+tauri = { version = "2.12", features = [] }
+directories = "6"
+keyring = "4"
+rusqlite = { version = "0.41", features = ["bundled", "fallible_uint"] }
+
+[target.'cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))'.dependencies]
+oft-platform.workspace = true
+tauri = { version = "2.12", features = ["tray-icon", "image-png"] }
+tauri-plugin-single-instance = "2.5"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.60", features = ["Win32_Foundation", "Win32_System_Memory", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_System_Time"] }
+
+[lints]
+workspace = true

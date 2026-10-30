@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-style-samples"
+description = "Enables the style_samples command without any pre-configured scope."
+commands.allow = ["style_samples"]
+
+[[permission]]
+identifier = "deny-style-samples"
+description = "Denies the style_samples command without any pre-configured scope."
+commands.deny = ["style_samples"]

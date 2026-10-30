@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-check-keys"
+description = "Enables the check_keys command without any pre-configured scope."
+commands.allow = ["check_keys"]
+
+[[permission]]
+identifier = "deny-check-keys"
+description = "Denies the check_keys command without any pre-configured scope."
+commands.deny = ["check_keys"]

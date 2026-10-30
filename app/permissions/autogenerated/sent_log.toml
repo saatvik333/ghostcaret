@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sent-log"
+description = "Enables the sent_log command without any pre-configured scope."
+commands.allow = ["sent_log"]
+
+[[permission]]
+identifier = "deny-sent-log"
+description = "Denies the sent_log command without any pre-configured scope."
+commands.deny = ["sent_log"]

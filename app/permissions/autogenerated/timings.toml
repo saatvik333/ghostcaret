@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-timings"
+description = "Enables the timings command without any pre-configured scope."
+commands.allow = ["timings"]
+
+[[permission]]
+identifier = "deny-timings"
+description = "Denies the timings command without any pre-configured scope."
+commands.deny = ["timings"]

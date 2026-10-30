@@ -1,0 +1,18 @@
+[package]
+name = "oft-store"
+description = "On-device stores: usage stats and style memory, in SQLite"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+oft-engine.workspace = true
+crossbeam-channel.workspace = true
+serde.workspace = true
+log.workspace = true
+rusqlite = { version = "0.41", features = ["bundled", "fallible_uint"] }
+
+[lints]
+workspace = true

@@ -1,0 +1,75 @@
+[package]
+name = "oft-platform"
+description = "OS backends: read the focused field, gate keys, show the overlay, insert text"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+oft-engine.workspace = true
+crossbeam-channel.workspace = true
+thiserror.workspace = true
+log.workspace = true
+
+# Linux backend: native Wayland input method.
+[target.'cfg(target_os = "linux")'.dependencies]
+oft-render.workspace = true
+# Pure-Rust Wayland client; no libwayland at run time.
+wayland-client = "0.31"
+wayland-protocols = { version = "0.32", features = ["client", "staging", "unstable"] }
+wayland-protocols-misc = { version = "0.3", features = ["client"] }
+wayland-protocols-wlr = { version = "0.3", features = ["client"] }
+# libxkbcommon, which every Wayland desktop already has loaded.
+xkbcommon = { version = "0.9", default-features = false }
+memmap2 = "0.9"
+rustix = { version = "1", features = ["event", "fs", "net"] }
+# AT-SPI and the settings portal over D-Bus; already in the app through
+# the keyring.
+zbus = { version = "5", default-features = false, features = ["blocking-api", "async-io"] }
+zvariant = "5"
+serde.workspace = true
+
+# Windows backend: UI Automation, low-level hook, layered overlay, SendInput.
+[target.'cfg(target_os = "windows")'.dependencies]
+oft-render.workspace = true
+# Caret stops for Shift+Arrow selection when replacing text.
+unicode-segmentation = "1"
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Com",
+    "Win32_System_DataExchange",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Memory",
+    "Win32_System_Ole",
+    "Win32_System_Registry",
+    "Win32_System_Threading",
+    "Win32_System_Variant",
+    "Win32_UI_Accessibility",
+    "Win32_UI_HiDpi",
+    "Win32_UI_Input_Ime",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+] }
+# The COM `implement` macro expands to paths in windows-core.
+windows-core = "0.62"
+
+# Android: the engine runtime inside the keyboard service, JNI glue, the
+# local and cloud models it serves, and the stores it shares with the app.
+[target.'cfg(target_os = "android")'.dependencies]
+oft-local.workspace = true
+oft-cloud.workspace = true
+oft-store.workspace = true
+jni = "0.22"
+android_logger = { version = "0.15", default-features = false }
+
+[dev-dependencies]
+proptest = "1"
+unicode-segmentation = "1"
+
+[lints]
+workspace = true

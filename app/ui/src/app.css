@@ -1,0 +1,375 @@
+/* Calm, dense, legible. Colour carries meaning only for real errors. */
+:root {
+  color-scheme: light dark;
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --text: #1b2028;
+  --muted: #555e6b;
+  --line: #d5dae1;
+  --accent: #1f5fbf;
+  --accent-text: #ffffff;
+  --focus: #1f5fbf;
+  --error: #b3261e;
+  --error-bg: #fdecea;
+  --radius: 6px;
+  --gap: 0.75rem;
+  font-family: system-ui, -apple-system, 'Segoe UI', 'Noto Sans', 'Cantarell', sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--text);
+  background: var(--bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15191f;
+    --panel: #1d232b;
+    --text: #e7eaee;
+    --muted: #a3acb8;
+    --line: #353d48;
+    --accent: #79b0ff;
+    --accent-text: #0d1726;
+    --focus: #79b0ff;
+    --error: #ffb4ab;
+    --error-bg: #3b1714;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --muted: var(--text);
+    --line: var(--text);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+h1 {
+  font-size: 1.35rem;
+  margin: 0 0 1rem;
+}
+
+h2 {
+  font-size: 1.05rem;
+  margin: 1.5rem 0 0.5rem;
+}
+
+h3 {
+  font-size: 0.95rem;
+  margin: 1rem 0 0.25rem;
+}
+
+p {
+  margin: 0.25rem 0 0.5rem;
+}
+
+a {
+  color: var(--accent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 0.3rem 0.75rem;
+  min-height: 2rem;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--muted);
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+button.danger {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+button.quiet {
+  border-color: transparent;
+  background: transparent;
+  text-decoration: underline;
+  padding-inline: 0.4rem;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+input[type='text'],
+input[type='password'],
+input[type='number'],
+input[type='url'],
+select,
+textarea {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: 0.3rem 0.5rem;
+  min-height: 2rem;
+}
+
+input[aria-invalid='true'],
+select[aria-invalid='true'],
+textarea[aria-invalid='true'],
+button.invalid {
+  border-color: var(--error);
+}
+
+textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+}
+
+input[type='range'] {
+  accent-color: var(--accent);
+  width: min(22rem, 100%);
+}
+
+fieldset {
+  border: none;
+  padding: 0;
+  margin: 0 0 0.75rem;
+}
+
+legend {
+  font-weight: 600;
+  padding: 0;
+  margin-bottom: 0.25rem;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+th {
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+td.num,
+th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+dialog {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  max-width: 28rem;
+  padding: 1.25rem;
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 0.4);
+}
+
+dialog h2 {
+  margin-top: 0;
+}
+
+progress {
+  width: min(18rem, 100%);
+  accent-color: var(--accent);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.muted,
+.hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.error {
+  color: var(--error);
+  font-size: 0.9rem;
+  margin: 0.25rem 0;
+}
+
+.banner-error {
+  border: 1px solid var(--error);
+  background: var(--error-bg);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin-bottom: var(--gap);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stack {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.2rem;
+  margin-bottom: 0.75rem;
+  max-width: 34rem;
+}
+
+.field > label,
+.field > .label {
+  font-weight: 600;
+}
+
+.check {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.check input {
+  margin-top: 0.2rem;
+}
+
+.check .muted {
+  display: block;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.badge {
+  display: inline-block;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 0.5rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.key-row {
+  display: grid;
+  grid-template-columns: 12rem auto auto 1fr;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.key-row .error,
+.key-row .hint {
+  grid-column: 2 / -1;
+}
+
+button.key {
+  font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Mono', monospace;
+  min-width: 9rem;
+  text-align: left;
+}
+
+button.key.recording {
+  border-color: var(--accent);
+  border-style: dashed;
+}
+
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+}
+
+.segmented label {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.bar {
+  display: inline-block;
+  height: 0.6rem;
+  background: var(--accent);
+  border-radius: 2px;
+  vertical-align: middle;
+}
+
+pre.sent {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Mono', monospace;
+  font-size: 0.85rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.5rem;
+  max-height: 18rem;
+  overflow: auto;
+}
