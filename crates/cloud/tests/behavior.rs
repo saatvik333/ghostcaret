@@ -8,8 +8,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use common::*;
-use oft_cloud::SentLog;
-use oft_engine::complete::{
+use ghostcaret_cloud::SentLog;
+use ghostcaret_engine::complete::{
     CancelToken, ChatMessage, CompleteError, Completer, GenerateRequest, Generator, Role, StopCheck,
 };
 

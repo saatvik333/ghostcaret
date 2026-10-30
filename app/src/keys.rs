@@ -1,7 +1,7 @@
 //! Key binding checks: a binding may not clash with another action, with
 //! ordinary typing, or with a shortcut the system reserves.
 
-use oft_engine::io::{Bindings, Chord, Key, Mods, Trigger};
+use ghostcaret_engine::io::{Bindings, Chord, Key, Mods, Trigger};
 use serde::Serialize;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -13,7 +13,7 @@ pub enum Slot {
     NextAlternative,
     PrevAlternative,
     Dismiss,
-    FlowDraft,
+    Reply,
 }
 
 impl Slot {
@@ -25,7 +25,7 @@ impl Slot {
             Slot::NextAlternative => "Next alternative",
             Slot::PrevAlternative => "Previous alternative",
             Slot::Dismiss => "Dismiss",
-            Slot::FlowDraft => "Reply & rewrite",
+            Slot::Reply => "Reply & rewrite",
         }
     }
 }
@@ -46,7 +46,7 @@ fn slots(b: &Bindings) -> [(Slot, Option<Trigger>); 7] {
         (Slot::NextAlternative, chord(b.next_alternative)),
         (Slot::PrevAlternative, chord(b.prev_alternative)),
         (Slot::Dismiss, chord(b.dismiss)),
-        (Slot::FlowDraft, b.flow_draft),
+        (Slot::Reply, b.reply),
     ]
 }
 
@@ -141,7 +141,7 @@ fn reserved(chord: Chord) -> Option<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oft_engine::io::Modifier;
+    use ghostcaret_engine::io::Modifier;
 
     fn chord(key: Key, mods: Mods) -> Option<Chord> {
         Some(Chord { key, mods })
@@ -165,15 +165,15 @@ mod tests {
     }
 
     #[test]
-    fn flow_draft_chord_conflicts_with_chords() {
+    fn reply_chord_conflicts_with_chords() {
         let b = Bindings {
-            flow_draft: Some(Trigger::Chord(Chord {
+            reply: Some(Trigger::Chord(Chord {
                 key: Key::Escape,
                 mods: NONE,
             })),
             ..Bindings::default()
         };
-        assert_eq!(check(&b)[0].slot, Slot::FlowDraft);
+        assert_eq!(check(&b)[0].slot, Slot::Reply);
     }
 
     #[test]
@@ -226,7 +226,7 @@ mod tests {
     #[test]
     fn modifier_taps_are_allowed_and_unbound_slots_ignored() {
         let b = Bindings {
-            flow_draft: Some(Trigger::ModifierTap(Modifier::RightCtrl)),
+            reply: Some(Trigger::ModifierTap(Modifier::RightCtrl)),
             next_alternative: None,
             prev_alternative: None,
             ..Bindings::default()

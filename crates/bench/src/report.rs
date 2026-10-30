@@ -135,7 +135,7 @@ fn method(o: &mut String, r: &Results) {
     let _ = writeln!(o, "## Method\n");
     let _ = writeln!(
         o,
-        "Each sample is typed character by character into a simulated field. The product's own controller (`oft_engine::controller`) receives the field snapshots, key-gate events and pause timer a backend would send; its requests (prompt segments from `prompt::build`, stop rule from the settings and the app's category) run on the model with a `stop::Stopper`, and its cut (`stop::cut`) decides what is shown. Take Word, Take All and typing-through use the engine's `SuggestionView` methods, as the key gate does.\n"
+        "Each sample is typed character by character into a simulated field. The product's own controller (`ghostcaret_engine::controller`) receives the field snapshots, key-gate events and pause timer a backend would send; its requests (prompt segments from `prompt::build`, stop rule from the settings and the app's category) run on the model with a `stop::Stopper`, and its cut (`stop::cut`) decides what is shown. Take Word, Take All and typing-through use the engine's `SuggestionView` methods, as the key gate does.\n"
     );
     let _ = writeln!(
         o,

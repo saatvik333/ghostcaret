@@ -1,20 +1,20 @@
 //! Tests against a real model. Ignored by default; run with
-//! `OFT_TEST_MODEL=<manifest id or GGUF path> cargo test -p oft-local -- --ignored`.
+//! `GHOSTCARET_TEST_MODEL=<manifest id or GGUF path> cargo test -p ghostcaret-local -- --ignored`.
 
 use std::path::PathBuf;
 use std::sync::{LazyLock, Mutex, MutexGuard};
 
-use oft_engine::complete::{
+use ghostcaret_engine::complete::{
     CancelToken, ChatMessage, CompleteError, Completer, CompletionRequest, GenerateRequest,
     Generator, LengthMode, Role, Segments, StopCheck, StopParams,
 };
-use oft_engine::io::{AppInfo, FieldId};
-use oft_local::store::ModelStore;
-use oft_local::{LoadOptions, LocalModel};
+use ghostcaret_engine::io::{AppInfo, FieldId};
+use ghostcaret_local::store::ModelStore;
+use ghostcaret_local::{LoadOptions, LocalModel};
 
 fn model_path() -> PathBuf {
-    let model = std::env::var("OFT_TEST_MODEL")
-        .expect("set OFT_TEST_MODEL to a manifest id or a GGUF path");
+    let model = std::env::var("GHOSTCARET_TEST_MODEL")
+        .expect("set GHOSTCARET_TEST_MODEL to a manifest id or a GGUF path");
     ModelStore::default_dir()
         .map(ModelStore::new)
         .and_then(|s| s.resolve(&model))
@@ -85,7 +85,7 @@ fn complete(model: &LocalModel, before: &str, alternatives: u8, max_tokens: u32)
 }
 
 #[test]
-#[ignore = "needs OFT_TEST_MODEL"]
+#[ignore = "needs GHOSTCARET_TEST_MODEL"]
 fn continues_the_text() {
     let m = model();
     let text = &complete(&m, "The capital of France is", 0, 6)[0];
@@ -93,7 +93,7 @@ fn continues_the_text() {
 }
 
 #[test]
-#[ignore = "needs OFT_TEST_MODEL"]
+#[ignore = "needs GHOSTCARET_TEST_MODEL"]
 fn completes_a_partial_word_with_only_the_rest() {
     let m = model();
     let text = &complete(&m, "Let's meet for dinner at the new Italian restau", 0, 4)[0];
@@ -101,7 +101,7 @@ fn completes_a_partial_word_with_only_the_rest() {
 }
 
 #[test]
-#[ignore = "needs OFT_TEST_MODEL"]
+#[ignore = "needs GHOSTCARET_TEST_MODEL"]
 fn probabilities_follow_the_text() {
     let m = model();
     let c = m
@@ -123,7 +123,7 @@ fn probabilities_follow_the_text() {
 }
 
 #[test]
-#[ignore = "needs OFT_TEST_MODEL"]
+#[ignore = "needs GHOSTCARET_TEST_MODEL"]
 fn typing_reuses_the_cache() {
     let m = model();
     let base = "Dear Anna,\n\nThank you for the lovely dinner last night. We should do it again";
@@ -143,7 +143,7 @@ fn typing_reuses_the_cache() {
 }
 
 #[test]
-#[ignore = "needs OFT_TEST_MODEL"]
+#[ignore = "needs GHOSTCARET_TEST_MODEL"]
 fn an_edit_gives_the_same_result_as_a_fresh_prompt() {
     let m = model();
     let edited = "My favourite fruits are apples, bananas and";
@@ -160,7 +160,7 @@ fn an_edit_gives_the_same_result_as_a_fresh_prompt() {
 }
 
 #[test]
-#[ignore = "needs OFT_TEST_MODEL"]
+#[ignore = "needs GHOSTCARET_TEST_MODEL"]
 fn alternatives_are_distinct() {
     let m = model();
     let texts = complete(&m, "I'm sorry, but I can't make it to the", 2, 4);
@@ -171,7 +171,7 @@ fn alternatives_are_distinct() {
 }
 
 #[test]
-#[ignore = "needs OFT_TEST_MODEL"]
+#[ignore = "needs GHOSTCARET_TEST_MODEL"]
 fn prefill_leaves_little_to_decode() {
     let m = model();
     let req = request(
@@ -189,7 +189,7 @@ fn prefill_leaves_little_to_decode() {
 }
 
 #[test]
-#[ignore = "needs OFT_TEST_MODEL"]
+#[ignore = "needs GHOSTCARET_TEST_MODEL"]
 fn a_cancelled_request_stops() {
     let m = model();
     let cancel = CancelToken::new();
@@ -201,7 +201,7 @@ fn a_cancelled_request_stops() {
 }
 
 #[test]
-#[ignore = "needs OFT_TEST_MODEL"]
+#[ignore = "needs GHOSTCARET_TEST_MODEL"]
 fn a_prompt_longer_than_the_context_is_trimmed() {
     let m = model();
     let long = "The quick brown fox jumps over the lazy dog. ".repeat(400);
@@ -210,7 +210,7 @@ fn a_prompt_longer_than_the_context_is_trimmed() {
 }
 
 #[test]
-#[ignore = "needs OFT_TEST_MODEL"]
+#[ignore = "needs GHOSTCARET_TEST_MODEL"]
 fn generation_streams_the_whole_result() {
     let m = model();
     let req = GenerateRequest {
@@ -237,7 +237,7 @@ fn generation_streams_the_whole_result() {
 }
 
 #[test]
-#[ignore = "needs OFT_TEST_MODEL"]
+#[ignore = "needs GHOSTCARET_TEST_MODEL"]
 fn unloading_makes_the_model_unavailable() {
     let m = LocalModel::load(&model_path(), options()).unwrap();
     assert!(m.is_loaded());

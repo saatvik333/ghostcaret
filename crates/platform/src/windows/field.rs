@@ -1,7 +1,7 @@
 //! What kind of field has focus, from the UI Automation properties of the
 //! focused element and its process.
 
-use oft_engine::io::FieldKind;
+use ghostcaret_engine::io::FieldKind;
 
 /// The properties classification looks at, as UI Automation reports them.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

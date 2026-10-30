@@ -1,5 +1,5 @@
 [package]
-name = "oft-bench"
+name = "ghostcaret-bench"
 description = "Replay benchmark: keystroke savings, wrong-suggestion rate and latency"
 version.workspace = true
 edition.workspace = true
@@ -8,14 +8,14 @@ rust-version.workspace = true
 publish = false
 
 [features]
-# GPU backends of the local model, passed through to oft-local.
-cuda = ["oft-local/cuda"]
-vulkan = ["oft-local/vulkan"]
-metal = ["oft-local/metal"]
+# GPU backends of the local model, passed through to ghostcaret-local.
+cuda = ["ghostcaret-local/cuda"]
+vulkan = ["ghostcaret-local/vulkan"]
+metal = ["ghostcaret-local/metal"]
 
 [dependencies]
-oft-engine.workspace = true
-oft-local.workspace = true
+ghostcaret-engine.workspace = true
+ghostcaret-local.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2 = "0.11"

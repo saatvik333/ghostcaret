@@ -7,7 +7,7 @@
   import { app } from './lib/store.svelte';
   import About from './pages/About.svelte';
   import Apps from './pages/Apps.svelte';
-  import FlowDraft from './pages/FlowDraft.svelte';
+  import Reply from './pages/Reply.svelte';
   import General from './pages/General.svelte';
   import Models from './pages/Models.svelte';
   import Privacy from './pages/Privacy.svelte';
@@ -18,7 +18,7 @@
     { id: 'general', label: 'General', component: General },
     { id: 'apps', label: 'Apps', component: Apps },
     { id: 'models', label: 'Models', component: Models },
-    { id: 'draft', label: 'Reply & rewrite', component: FlowDraft },
+    { id: 'draft', label: 'Reply & rewrite', component: Reply },
     { id: 'privacy', label: 'Privacy & context', component: Privacy },
     { id: 'usage', label: 'Usage', component: Usage },
     { id: 'about', label: 'About', component: About },

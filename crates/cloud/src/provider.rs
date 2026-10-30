@@ -5,11 +5,11 @@ use std::sync::atomic::{AtomicBool, Ordering::Relaxed};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use oft_engine::complete::{
+use ghostcaret_engine::complete::{
     CancelToken, Candidate, Caps, ChatMessage, CompleteError, Completer, Completion,
     CompletionRequest, GenerateRequest, Generator, Role, StopCheck,
 };
-use oft_engine::settings::{ProviderConfig, ProviderKind};
+use ghostcaret_engine::settings::{ProviderConfig, ProviderKind};
 use serde_json::Value;
 use ureq::http::Uri;
 
@@ -38,10 +38,10 @@ pub struct Tuning {
     pub per_minute: u32,
     /// An autocomplete answer later than this is useless.
     pub complete_deadline: Duration,
-    /// Covers every attempt of one Flow Draft request, backoff included.
+    /// Covers every attempt of one Reply & rewrite request, backoff included.
     pub generate_deadline: Duration,
     pub connect_timeout: Duration,
-    /// Attempts per Flow Draft request, the first included.
+    /// Attempts per Reply & rewrite request, the first included.
     pub max_attempts: u32,
     /// First retry delay; doubles each attempt, with jitter.
     pub backoff: Duration,
@@ -621,7 +621,7 @@ impl Provider {
         Ok(acc.finish())
     }
 
-    /// One attempt at a Flow Draft request; streams text to `on_delta`.
+    /// One attempt at a Reply & rewrite request; streams text to `on_delta`.
     fn generate_once(
         &self,
         req: &GenerateRequest,

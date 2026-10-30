@@ -22,7 +22,7 @@
       return;
     }
     formError = null;
-    s.flow_draft.custom_actions.push({ name: name.trim(), instruction: instruction.trim() });
+    s.reply.custom_actions.push({ name: name.trim(), instruction: instruction.trim() });
     if (await app.save(`Action “${name.trim()}” added`)) {
       name = '';
       instruction = '';
@@ -31,35 +31,35 @@
 
   function remove() {
     if (removing === null) return;
-    const [gone] = s.flow_draft.custom_actions.splice(removing, 1);
+    const [gone] = s.reply.custom_actions.splice(removing, 1);
     void app.save(`Action “${gone.name}” removed`);
   }
 </script>
 
 <h1 id="page-title" tabindex="-1">Reply & rewrite</h1>
 <p class="hint">
-  {s.keys.flow_draft ? triggerName(s.keys.flow_draft) : 'The reply & rewrite key'} drafts a reply to the conversation on screen, or rewrites the
+  {s.keys.reply ? triggerName(s.keys.reply) : 'The reply & rewrite key'} drafts a reply to the conversation on screen, or rewrites the
   text you selected. Nothing is inserted until you accept it, and nothing is ever sent for you.
 </p>
 
 <label class="check">
-  <input type="checkbox" bind:checked={s.flow_draft.enabled} onchange={() => app.save()} />
+  <input type="checkbox" bind:checked={s.reply.enabled} onchange={() => app.save()} />
   <span>Use reply & rewrite</span>
 </label>
 <label class="check">
-  <input type="checkbox" bind:checked={s.flow_draft.auto_offer} onchange={() => app.save()} disabled={!s.flow_draft.enabled} />
+  <input type="checkbox" bind:checked={s.reply.auto_offer} onchange={() => app.save()} disabled={!s.reply.enabled} />
   <span>Offer a draft when I pause in an empty reply box</span>
 </label>
 
 <h2>Rewrite actions</h2>
 <p class="hint">Built in: Fix, Rephrase, Shorten, Expand, Translate and Change tone. Your own actions follow them.</p>
-{#if s.flow_draft.custom_actions.length > 0}
+{#if s.reply.custom_actions.length > 0}
   <table>
     <thead>
       <tr><th scope="col">Name</th><th scope="col">Instruction</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr>
     </thead>
     <tbody>
-      {#each s.flow_draft.custom_actions as action, i (i)}
+      {#each s.reply.custom_actions as action, i (i)}
         <tr>
           <th scope="row">
             <label class="visually-hidden" for="an-{i}">Name of action {i + 1}</label>
@@ -101,7 +101,7 @@
 <ConfirmDialog
   bind:open={removeOpen}
   title="Remove this action?"
-  message={`“${removing !== null ? (s.flow_draft.custom_actions[removing]?.name ?? '') : ''}” is removed from the rewrite menu.`}
+  message={`“${removing !== null ? (s.reply.custom_actions[removing]?.name ?? '') : ''}” is removed from the rewrite menu.`}
   confirm="Remove action"
   onconfirm={remove}
 />

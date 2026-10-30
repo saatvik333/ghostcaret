@@ -9,7 +9,7 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use crossbeam_channel::Sender;
-use oft_engine::io::{Event, InsertOutcome, InsertRequest, Replace};
+use ghostcaret_engine::io::{Event, InsertOutcome, InsertRequest, Replace};
 use windows::Win32::Foundation::{GlobalFree, HANDLE, HGLOBAL, HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::DataExchange::{
     CloseClipboard, EmptyClipboard, EnumClipboardFormats, GetClipboardData, GetClipboardOwner,

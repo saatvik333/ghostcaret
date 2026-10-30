@@ -3,7 +3,7 @@
 
 use std::os::fd::OwnedFd;
 
-use oft_engine::io::{Key, Modifier, Mods};
+use ghostcaret_engine::io::{Key, Modifier, Mods};
 use xkbcommon::xkb;
 
 use crate::gate::{KeyIn, Typed};

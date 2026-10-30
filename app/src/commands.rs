@@ -4,10 +4,10 @@
 
 use std::sync::Arc;
 
-use oft_cloud::{ModelInfo, SentEntry};
-use oft_engine::io::Bindings;
-use oft_engine::settings::{ModelChoice, ProviderConfig, Settings, SettingsError};
-use oft_store::stats::{SeenApp, Usage};
+use ghostcaret_cloud::{ModelInfo, SentEntry};
+use ghostcaret_engine::io::Bindings;
+use ghostcaret_engine::settings::{ModelChoice, ProviderConfig, Settings, SettingsError};
+use ghostcaret_store::stats::{SeenApp, Usage};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
@@ -60,7 +60,7 @@ pub struct Overview {
     pub setup: Step,
     pub ram_bytes: Option<u64>,
     pub local_available: bool,
-    pub status: oft_runtime::StatusView,
+    pub status: ghostcaret_runtime::StatusView,
 }
 
 #[tauri::command]
@@ -118,7 +118,9 @@ pub async fn save_settings(
             SaveError::Io(e) => CmdError::new(format!("Could not save settings: {e}")),
         })?;
         state.replace_settings(settings);
-        state.runtime.send(oft_runtime::Command::SettingsChanged);
+        state
+            .runtime
+            .send(ghostcaret_runtime::Command::SettingsChanged);
         crate::refresh_tray(&app, &state);
         Ok(())
     })
@@ -152,7 +154,9 @@ pub async fn set_api_key(
     blocking(move || {
         let key = checked_key(&key)?;
         keychain::set(&provider, key).map_err(|e| CmdError::at("key", e.to_string()))?;
-        state.runtime.send(oft_runtime::Command::ModelsChanged);
+        state
+            .runtime
+            .send(ghostcaret_runtime::Command::ModelsChanged);
         Ok(())
     })
     .await
@@ -180,7 +184,9 @@ pub async fn remove_provider(
             .save(&settings)
             .map_err(|e| CmdError::new(e.to_string()))?;
         state.replace_settings(settings.clone());
-        state.runtime.send(oft_runtime::Command::SettingsChanged);
+        state
+            .runtime
+            .send(ghostcaret_runtime::Command::SettingsChanged);
         crate::refresh_tray(&app, &state);
         Ok(settings)
     })
@@ -191,7 +197,7 @@ fn validate_provider(config: &ProviderConfig) -> Result<()> {
     if config.id.trim().is_empty() {
         return Err(CmdError::at("id", "The provider needs a name."));
     }
-    if let oft_engine::settings::ProviderKind::OpenAiCompatible { base_url } = &config.kind {
+    if let ghostcaret_engine::settings::ProviderKind::OpenAiCompatible { base_url } = &config.kind {
         let ok = base_url.starts_with("https://") || base_url.starts_with("http://");
         if !ok {
             return Err(CmdError::at(
@@ -215,10 +221,10 @@ fn build_provider(
     state: &AppState,
     config: &ProviderConfig,
     key: Option<String>,
-) -> Result<Arc<oft_cloud::Provider>> {
+) -> Result<Arc<ghostcaret_cloud::Provider>> {
     validate_provider(config)?;
     let key = key_for(config, key)?;
-    oft_cloud::provider(config, key, state.sent_log.clone())
+    ghostcaret_cloud::provider(config, key, state.sent_log.clone())
         .map_err(|e| CmdError::at("key", e.to_string()))
 }
 
@@ -301,7 +307,7 @@ pub async fn seen_apps(state: State<'_, Arc<AppState>>) -> Result<Vec<SeenApp>> 
 #[tauri::command]
 pub async fn style_samples(
     state: State<'_, Arc<AppState>>,
-) -> Result<Vec<oft_store::style::Sample>> {
+) -> Result<Vec<ghostcaret_store::style::Sample>> {
     let state = state.inner().clone();
     blocking(move || match &state.style {
         Some(style) => style.all().map_err(|e| CmdError::new(e.to_string())),
@@ -339,21 +345,21 @@ pub async fn set_setup_step(state: State<'_, Arc<AppState>>, step: Step) -> Resu
 #[tauri::command]
 pub fn pause(
     state: State<'_, Arc<AppState>>,
-    scope: oft_runtime::pause::Scope,
-    length: oft_runtime::pause::PauseFor,
+    scope: ghostcaret_runtime::pause::Scope,
+    length: ghostcaret_runtime::pause::PauseFor,
 ) {
     state
         .runtime
-        .send(oft_runtime::Command::Pause(scope, length));
+        .send(ghostcaret_runtime::Command::Pause(scope, length));
 }
 
 #[tauri::command]
 pub fn resume(state: State<'_, Arc<AppState>>, app: Option<String>) {
-    state.runtime.send(oft_runtime::Command::Resume(app));
+    state.runtime.send(ghostcaret_runtime::Command::Resume(app));
 }
 
 #[tauri::command]
-pub fn timings(state: State<'_, Arc<AppState>>) -> Vec<oft_runtime::Timing> {
+pub fn timings(state: State<'_, Arc<AppState>>) -> Vec<ghostcaret_runtime::Timing> {
     state.runtime.timings()
 }
 
@@ -371,9 +377,9 @@ pub mod local_models {
     use std::sync::Arc;
     use std::thread;
 
-    use oft_engine::complete::CancelToken;
-    use oft_engine::settings::ModelChoice;
-    use oft_local::store::{Manifest, ModelEntry, Progress, Tier};
+    use ghostcaret_engine::complete::CancelToken;
+    use ghostcaret_engine::settings::ModelChoice;
+    use ghostcaret_local::store::{Manifest, ModelEntry, Progress, Tier};
     use serde::Serialize;
     use tauri::{AppHandle, State};
 
@@ -512,7 +518,7 @@ pub mod local_models {
         }
         let state = state.inner().clone();
         thread::Builder::new()
-            .name("oft-download".into())
+            .name("ghostcaret-download".into())
             .spawn(move || {
                 let mut last = 0u64;
                 let mut on_progress = |p: Progress| {
@@ -531,13 +537,17 @@ pub mod local_models {
                         );
                         if p.total > 0 {
                             let f = p.downloaded as f32 / p.total as f32;
-                            state.runtime.send(oft_runtime::Command::Download(Some(f)));
+                            state
+                                .runtime
+                                .send(ghostcaret_runtime::Command::Download(Some(f)));
                         }
                     }
                 };
                 let result = state.models.download(entry, &mut on_progress, &cancel);
                 *state.download.lock().unwrap_or_else(|e| e.into_inner()) = None;
-                state.runtime.send(oft_runtime::Command::Download(None));
+                state
+                    .runtime
+                    .send(ghostcaret_runtime::Command::Download(None));
                 let cancelled = cancel.is_cancelled();
                 let error = result.err().filter(|_| !cancelled).map(|e| e.to_string());
                 emit(
@@ -591,13 +601,17 @@ pub mod local_models {
                     .save(&settings)
                     .map_err(|e| CmdError::new(e.to_string()))?;
                 state.replace_settings(settings);
-                state.runtime.send(oft_runtime::Command::SettingsChanged);
+                state
+                    .runtime
+                    .send(ghostcaret_runtime::Command::SettingsChanged);
             }
             state
                 .models
                 .delete(entry)
                 .map_err(|e| CmdError::new(format!("Could not delete the model: {e}")))?;
-            state.runtime.send(oft_runtime::Command::ModelsChanged);
+            state
+                .runtime
+                .send(ghostcaret_runtime::Command::ModelsChanged);
             crate::refresh_tray(&app, &state);
             Ok(())
         })

@@ -17,7 +17,7 @@
 
 use std::collections::HashSet;
 
-use oft_engine::io::{AppInfo, Author, Conversation, Message};
+use ghostcaret_engine::io::{AppInfo, Author, Conversation, Message};
 use zbus::blocking::{Connection, Proxy};
 use zbus::zvariant::{ObjectPath, OwnedObjectPath};
 
@@ -349,7 +349,7 @@ impl Announcer {
     pub fn start() -> Option<Announcer> {
         let (jobs, rx) = crossbeam_channel::unbounded::<String>();
         std::thread::Builder::new()
-            .name("oft-announce".into())
+            .name("ghostcaret-announce".into())
             .spawn(move || {
                 let app = match announce::register() {
                     Ok(app) => app,

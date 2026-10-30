@@ -9,7 +9,7 @@ use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use oft_engine::settings::{Settings, SettingsError};
+use ghostcaret_engine::settings::{Settings, SettingsError};
 
 #[derive(Debug)]
 pub struct SettingsStore {
@@ -133,7 +133,8 @@ mod tests {
     use super::*;
 
     fn scratch(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("oft-settings-{name}-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("ghostcaret-settings-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir

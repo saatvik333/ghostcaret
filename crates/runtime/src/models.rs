@@ -23,10 +23,10 @@ use std::thread;
 use std::time::Instant;
 
 use crossbeam_channel::{Receiver, Sender, unbounded};
-use oft_cloud::SentLog;
-use oft_engine::complete::{Caps, CompleteError, Completer, Generator};
-use oft_engine::controller::Feature;
-use oft_engine::settings::{ModelChoice, ProviderConfig, Settings};
+use ghostcaret_cloud::SentLog;
+use ghostcaret_engine::complete::{Caps, CompleteError, Completer, Generator};
+use ghostcaret_engine::controller::Feature;
+use ghostcaret_engine::settings::{ModelChoice, ProviderConfig, Settings};
 
 use crate::Host;
 
@@ -37,9 +37,9 @@ pub(crate) trait CloudModel: Completer + Generator + fmt::Debug {
     fn warm(&self);
 }
 
-impl CloudModel for oft_cloud::Provider {
+impl CloudModel for ghostcaret_cloud::Provider {
     fn warm(&self) {
-        oft_cloud::Provider::warm(self);
+        ghostcaret_cloud::Provider::warm(self);
     }
 }
 
@@ -51,9 +51,9 @@ pub(crate) trait LocalModel: Completer + Generator + fmt::Debug {
 }
 
 #[cfg(feature = "local")]
-impl LocalModel for oft_local::LocalModel {
+impl LocalModel for ghostcaret_local::LocalModel {
     fn unload(&self) {
-        oft_local::LocalModel::unload(self);
+        ghostcaret_local::LocalModel::unload(self);
     }
 }
 
@@ -78,14 +78,14 @@ pub(crate) trait Loader: Send + Sync + 'static {
     ) -> Result<Arc<dyn LocalModel>, String>;
 }
 
-/// The product's models: `oft-cloud` providers, and `oft-local` models from
+/// The product's models: `ghostcaret-cloud` providers, and `ghostcaret-local` models from
 /// the model store.
 pub(crate) struct Models {
     sent_log: SentLog,
     #[cfg(feature = "local")]
-    store: oft_local::store::ModelStore,
+    store: ghostcaret_local::store::ModelStore,
     #[cfg(feature = "local")]
-    options: oft_local::LoadOptions,
+    options: ghostcaret_local::LoadOptions,
 }
 
 impl Models {
@@ -93,7 +93,7 @@ impl Models {
         Models {
             sent_log: config.sent_log.clone(),
             #[cfg(feature = "local")]
-            store: oft_local::store::ModelStore::new(config.models_dir.clone()),
+            store: ghostcaret_local::store::ModelStore::new(config.models_dir.clone()),
             #[cfg(feature = "local")]
             options: config.load_options.clone(),
         }
@@ -106,7 +106,7 @@ impl Loader for Models {
         config: &ProviderConfig,
         key: Option<String>,
     ) -> Result<Arc<dyn CloudModel>, String> {
-        oft_cloud::provider(config, key, self.sent_log.clone())
+        ghostcaret_cloud::provider(config, key, self.sent_log.clone())
             .map(|p| p as Arc<dyn CloudModel>)
             .map_err(|e| e.to_string())
     }
@@ -144,7 +144,7 @@ impl Loader for Models {
         path: &Path,
         progress: &mut dyn FnMut(f32),
     ) -> Result<Arc<dyn LocalModel>, String> {
-        oft_local::LocalModel::load_with_progress(path, self.options.clone(), progress)
+        ghostcaret_local::LocalModel::load_with_progress(path, self.options.clone(), progress)
             .map(|m| Arc::new(m) as Arc<dyn LocalModel>)
             .map_err(|e| e.to_string())
     }
@@ -252,7 +252,7 @@ impl Hub {
         let (tx, rx) = unbounded();
         let (warm, warm_rx) = unbounded::<Arc<dyn CloudModel>>();
         thread::Builder::new()
-            .name("oft-warm".into())
+            .name("ghostcaret-warm".into())
             .spawn(move || {
                 while let Ok(mut provider) = warm_rx.recv() {
                     // Only the latest focus matters.
@@ -266,7 +266,7 @@ impl Hub {
         {
             let (loader, out) = (loader.clone(), tx.clone());
             thread::Builder::new()
-                .name("oft-local".into())
+                .name("ghostcaret-local".into())
                 .spawn(move || local_thread(&*loader, &jobs, &out))?;
         }
         let hub = Hub {
@@ -349,7 +349,7 @@ impl Hub {
                     self.generation,
                 );
                 let spawned = thread::Builder::new()
-                    .name("oft-provider".into())
+                    .name("ghostcaret-provider".into())
                     .spawn(move || {
                         let result = host
                             .api_key(&config.id)
@@ -378,7 +378,7 @@ impl Hub {
     fn slot(&self, feature: Feature) -> &Slot {
         match feature {
             Feature::Autocomplete => &self.autocomplete,
-            Feature::FlowDraft => &self.draft,
+            Feature::Reply => &self.draft,
         }
     }
 
@@ -601,7 +601,7 @@ impl Hub {
             return LocalState::Failed(e.clone());
         }
         if self.resident.loaded.is_some()
-            && (self.is_local(Feature::Autocomplete) || self.is_local(Feature::FlowDraft))
+            && (self.is_local(Feature::Autocomplete) || self.is_local(Feature::Reply))
         {
             return LocalState::Ready;
         }

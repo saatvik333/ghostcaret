@@ -36,7 +36,7 @@ pub struct Settings {
     pub draft_model: ModelChoice,
     pub providers: Vec<ProviderConfig>,
     pub context: ContextSettings,
-    pub flow_draft: FlowDraftSettings,
+    pub reply: ReplySettings,
     /// Per-app rules keyed by `AppInfo::id`.
     pub apps: BTreeMap<String, AppRule>,
     /// Daily cap on cloud requests; `None` for no cap.
@@ -65,7 +65,7 @@ impl Default for Settings {
             draft_model: ModelChoice::None,
             providers: Vec::new(),
             context: ContextSettings::default(),
-            flow_draft: FlowDraftSettings::default(),
+            reply: ReplySettings::default(),
             apps: BTreeMap::new(),
             daily_request_cap: None,
             low_power: false,
@@ -336,7 +336,7 @@ impl Default for ContextSettings {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
-pub struct FlowDraftSettings {
+pub struct ReplySettings {
     pub enabled: bool,
     /// Offer a draft when the user pauses in an empty reply box.
     pub auto_offer: bool,
@@ -344,9 +344,9 @@ pub struct FlowDraftSettings {
     pub custom_actions: Vec<CustomAction>,
 }
 
-impl Default for FlowDraftSettings {
+impl Default for ReplySettings {
     fn default() -> Self {
-        FlowDraftSettings {
+        ReplySettings {
             enabled: true,
             auto_offer: false,
             custom_actions: Vec::new(),

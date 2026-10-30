@@ -1,4 +1,4 @@
-//! Contract between the engine and model providers (`oft-local`, `oft-cloud`).
+//! Contract between the engine and model providers (`ghostcaret-local`, `ghostcaret-cloud`).
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -168,7 +168,7 @@ pub struct GenerateRequest {
     pub temperature: f32,
 }
 
-/// Chat generation for Flow Draft.
+/// Chat generation for Reply & rewrite.
 pub trait Generator: Send + Sync {
     /// Streams text through `on_delta` and returns the full result.
     fn generate(

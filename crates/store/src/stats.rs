@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 use std::thread;
 
 use crossbeam_channel::{Receiver, Sender, unbounded};
-use oft_engine::controller::Stat;
-use oft_engine::io::AppInfo;
+use ghostcaret_engine::controller::Stat;
+use ghostcaret_engine::io::AppInfo;
 use rusqlite::{Connection, OpenFlags, params};
 use serde::Serialize;
 
@@ -59,7 +59,7 @@ impl Stats {
         conn.execute_batch(SCHEMA)?;
         let (tx, rx) = unbounded();
         thread::Builder::new()
-            .name("oft-stats".into())
+            .name("ghostcaret-stats".into())
             .spawn(move || writer(conn, rx))
             .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
         Ok(Stats { tx, path })

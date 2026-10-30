@@ -28,13 +28,13 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::{Condvar, Mutex, MutexGuard};
 use std::time::Instant;
 
-use oft_engine::complete::{
+use ghostcaret_engine::complete::{
     CancelToken, Candidate, Caps, CompleteError, Completer, Completion, CompletionRequest,
     StopCheck, StopParams,
 };
-use oft_engine::io::AppInfo;
-use oft_engine::settings::Settings;
-use oft_engine::stop::{Stopper, max_tokens};
+use ghostcaret_engine::io::AppInfo;
+use ghostcaret_engine::settings::Settings;
+use ghostcaret_engine::stop::{Stopper, max_tokens};
 
 use crate::metrics::Tally;
 use crate::pause::PauseModel;
@@ -346,8 +346,8 @@ fn truncate(c: &Candidate, tokens: usize) -> Candidate {
 mod tests {
     use std::sync::Mutex;
 
-    use oft_engine::complete::LengthMode;
-    use oft_engine::io::{AppInfo, FieldId};
+    use ghostcaret_engine::complete::LengthMode;
+    use ghostcaret_engine::io::{AppInfo, FieldId};
 
     use super::*;
 
@@ -409,7 +409,7 @@ mod tests {
             id: 1,
             field: FieldId(1),
             revision: 1,
-            segments: oft_engine::complete::Segments {
+            segments: ghostcaret_engine::complete::Segments {
                 app: AppInfo::default(),
                 before: "We will ".into(),
                 ..Default::default()
@@ -479,11 +479,11 @@ mod tests {
         let word = params(LengthMode::Word, 0.5);
         let shared = Shared::new(&m, vec![word, params(LengthMode::Sentence, 0.5)]);
         let got = solo(&shared, &request(word));
-        let ctx = oft_engine::stop::CutContext {
+        let ctx = ghostcaret_engine::stop::CutContext {
             before: "We will ",
             after: "",
         };
-        let view = oft_engine::stop::cut(&got.candidates[0], &word, &ctx).unwrap();
+        let view = ghostcaret_engine::stop::cut(&got.candidates[0], &word, &ctx).unwrap();
         assert_eq!(view.visible(), "see");
         // The shared generation itself ran on to the sentence end.
         assert!(shared.tokens() >= 6, "{}", shared.tokens());

@@ -13,14 +13,14 @@
 
 use std::collections::VecDeque;
 
-use oft_engine::complete::{Caps, CompleteError, Completion, CompletionRequest, StopParams};
-use oft_engine::controller::{Controller, Feature, Input, Output, TimerId};
-use oft_engine::io::{
+use ghostcaret_engine::complete::{Caps, CompleteError, Completion, CompletionRequest, StopParams};
+use ghostcaret_engine::controller::{Controller, Feature, Input, Output, TimerId};
+use ghostcaret_engine::io::{
     AppInfo, Conversation, DismissReason, Event, FieldId, FieldKind, FieldSnapshot, Message,
     Overlay, SuggestionView,
 };
-use oft_engine::settings::Settings;
-use oft_engine::stop::{self, CutContext};
+use ghostcaret_engine::settings::Settings;
+use ghostcaret_engine::stop::{self, CutContext};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::metrics::Tally;
@@ -337,7 +337,7 @@ impl Sim<'_> {
 mod tests {
     use std::collections::HashMap;
 
-    use oft_engine::complete::{Candidate, LengthMode};
+    use ghostcaret_engine::complete::{Candidate, LengthMode};
 
     use super::*;
 
@@ -577,7 +577,7 @@ mod tests {
         }
         let mut s = sample("sure ");
         s.conversation = vec![Message {
-            author: oft_engine::io::Author::Other("Ann".into()),
+            author: ghostcaret_engine::io::Author::Other("Ann".into()),
             text: "Lunch?".into(),
         }];
         let mut spy = Spy(Vec::new());

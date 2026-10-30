@@ -8,11 +8,11 @@ use std::sync::atomic::Ordering;
 use std::time::Instant;
 
 use crossbeam_channel::{Receiver, Sender};
-use oft_engine::io::{
+use ghostcaret_engine::io::{
     AppInfo, BackendStatus, DismissReason, Event, FieldId, FieldKind, FieldSnapshot, InsertOutcome,
     InsertRequest, Overlay, Replace,
 };
-use oft_render::Image;
+use ghostcaret_render::Image;
 use rustix::event::{PollFd, PollFlags, Timespec};
 use wayland_client::globals::{GlobalList, GlobalListContents, registry_queue_init};
 use wayland_client::protocol::wl_buffer::{self, WlBuffer};

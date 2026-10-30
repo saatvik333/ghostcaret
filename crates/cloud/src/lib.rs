@@ -1,11 +1,11 @@
 //! Cloud model providers: OpenAI-compatible servers, Anthropic and Gemini.
 //!
 //! [`provider`] builds a [`Provider`] that serves autocomplete
-//! ([`oft_engine::complete::Completer`]) and Flow Draft
-//! ([`oft_engine::complete::Generator`]) over one pooled HTTPS connection.
+//! ([`ghostcaret_engine::complete::Completer`]) and Reply & rewrite
+//! ([`ghostcaret_engine::complete::Generator`]) over one pooled HTTPS connection.
 //!
 //! - Autocomplete requests are sent once and never retried; a late answer is
-//!   useless. Flow Draft retries transient failures with jittered backoff inside
+//!   useless. Reply & rewrite retries transient failures with jittered backoff inside
 //!   a deadline. A per-minute client limit applies to both.
 //! - Token probabilities are requested wherever the provider offers them and
 //!   mapped onto the candidate text.

@@ -8,7 +8,7 @@
 //! arrive; the key gate's p50 and p99 are printed at exit.
 //!
 //! ```sh
-//! cargo run -p oft-platform --example linux_demo -- 60   # seconds to run
+//! cargo run -p ghostcaret-platform --example linux_demo -- 60   # seconds to run
 //! ```
 
 #[cfg(target_os = "linux")]
@@ -16,11 +16,11 @@ mod demo {
     use std::sync::Arc;
     use std::time::{Duration, Instant};
 
-    use oft_engine::io::{
+    use ghostcaret_engine::io::{
         Action, Backend, CardKey, CardView, Event, FieldId, FieldSnapshot, InsertRequest, Overlay,
         Replace, SuggestionView,
     };
-    use oft_platform::linux::{self, LinuxBackend};
+    use ghostcaret_platform::linux::{self, LinuxBackend};
 
     const TRIGGER: &str = "hello";
     const ALTERNATIVES: [&str; 2] = [" world, how are you today?", " there, nice to meet you."];
@@ -264,7 +264,7 @@ mod demo {
                 Event::Action(action) => {
                     println!("Action({action:?})");
                     match action {
-                        Action::FlowDraft => demo.open_card(),
+                        Action::Reply => demo.open_card(),
                         Action::NextAlternative => demo.cycle(1),
                         Action::PrevAlternative => demo.cycle(-1),
                         _ => {}

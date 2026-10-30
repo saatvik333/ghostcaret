@@ -1,7 +1,7 @@
 //! Ghostcaret: the Tauri app that hosts the engine.
 //!
 //! It lives in the tray, runs the OS backend and the engine's runtime
-//! ([`oft_runtime`], with this app as its [`host`]), and opens the settings
+//! ([`ghostcaret_runtime`], with this app as its [`host`]), and opens the settings
 //! window on demand; the window and its web view are destroyed when closed.
 
 mod commands;
@@ -16,10 +16,10 @@ mod tray;
 
 use std::sync::{Arc, Mutex};
 
-use oft_cloud::SentLog;
-use oft_engine::settings::Settings;
-use oft_store::stats::Stats;
-use oft_store::style::StyleMemory;
+use ghostcaret_cloud::SentLog;
+use ghostcaret_engine::settings::Settings;
+use ghostcaret_store::stats::Stats;
+use ghostcaret_store::style::StyleMemory;
 use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
 
 use settings_store::SettingsStore;
@@ -36,11 +36,11 @@ pub struct AppState {
     stats: Option<Stats>,
     style: Option<StyleMemory>,
     sent_log: SentLog,
-    runtime: oft_runtime::Runtime,
+    runtime: ghostcaret_runtime::Runtime,
     #[cfg(feature = "local")]
-    models: oft_local::store::ModelStore,
+    models: ghostcaret_local::store::ModelStore,
     #[cfg(feature = "local")]
-    download: Mutex<Option<(String, oft_engine::complete::CancelToken)>>,
+    download: Mutex<Option<(String, ghostcaret_engine::complete::CancelToken)>>,
 }
 
 impl std::fmt::Debug for AppState {
@@ -130,21 +130,21 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             app.handle().clone(),
             settings.clone(),
         ));
-        let config = oft_runtime::Config {
+        let config = ghostcaret_runtime::Config {
             stats: stats.clone(),
             style: style.clone(),
             sent_log: sent_log.clone(),
             #[cfg(feature = "local")]
             models_dir: paths::models_dir(),
             #[cfg(feature = "local")]
-            load_options: oft_local::LoadOptions::default(),
+            load_options: ghostcaret_local::LoadOptions::default(),
         };
-        let runtime = oft_runtime::start(host, config, |events| {
-            oft_platform::start(events).map_err(|e| e.to_string())
+        let runtime = ghostcaret_runtime::start(host, config, |events| {
+            ghostcaret_platform::start(events).map_err(|e| e.to_string())
         })?;
         let commands = runtime.commands();
         memory::watch_pressure(move || {
-            let _ = commands.send(oft_runtime::Command::MemoryPressure);
+            let _ = commands.send(ghostcaret_runtime::Command::MemoryPressure);
         });
         runtime
     };
@@ -160,7 +160,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         sent_log,
         runtime,
         #[cfg(feature = "local")]
-        models: oft_local::store::ModelStore::new(paths::models_dir()),
+        models: ghostcaret_local::store::ModelStore::new(paths::models_dir()),
         #[cfg(feature = "local")]
         download: Mutex::new(None),
     });
@@ -224,7 +224,7 @@ pub fn run() {
         #[cfg(desktop)]
         RunEvent::Exit => {
             if let Some(state) = app.try_state::<Arc<AppState>>() {
-                state.runtime.send(oft_runtime::Command::Quit);
+                state.runtime.send(ghostcaret_runtime::Command::Quit);
             }
         }
         _ => {

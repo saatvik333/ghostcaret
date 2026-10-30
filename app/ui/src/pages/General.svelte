@@ -27,7 +27,7 @@
     { slot: 'next_alternative', label: 'Next alternative' },
     { slot: 'prev_alternative', label: 'Previous alternative' },
     { slot: 'dismiss', label: 'Dismiss' },
-    { slot: 'flow_draft', label: 'Reply & rewrite' },
+    { slot: 'reply', label: 'Reply & rewrite' },
   ];
 
   const boldnessText = $derived(
@@ -37,7 +37,7 @@
 
   async function setKey(slot: Slot, value: Trigger | null) {
     const keys: Bindings = { ...$state.snapshot(s.keys) };
-    if (slot === 'flow_draft') keys.flow_draft = value;
+    if (slot === 'reply') keys.reply = value;
     else keys[slot] = value && 'chord' in value ? value.chord : null;
     keyProblems = await api.checkKeys(keys);
     if (keyProblems.length > 0) {
@@ -49,7 +49,7 @@
   }
 
   function keyValue(slot: Slot): Trigger | null {
-    if (slot === 'flow_draft') return s.keys.flow_draft;
+    if (slot === 'reply') return s.keys.reply;
     const chord = s.keys[slot];
     return chord ? { chord } : null;
   }
@@ -209,7 +209,7 @@
   <KeyRecorder
     {label}
     value={keyValue(slot)}
-    allowTap={slot === 'flow_draft'}
+    allowTap={slot === 'reply'}
     error={keyProblems.find((p) => p.slot === slot)?.message ?? errors[`keys.${slot}`]}
     onchange={(v) => setKey(slot, v)}
   />

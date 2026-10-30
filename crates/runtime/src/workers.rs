@@ -8,13 +8,13 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use crossbeam_channel::{Receiver, Sender, unbounded};
-use oft_engine::complete::{
+use ghostcaret_engine::complete::{
     CancelToken, CompleteError, Completer, Completion, CompletionRequest, GenerateRequest,
     Generator,
 };
-use oft_engine::controller::{GenerateUpdate, Input};
-use oft_engine::io::{Backend, FieldId};
-use oft_engine::stop::Stopper;
+use ghostcaret_engine::controller::{GenerateUpdate, Input};
+use ghostcaret_engine::io::{Backend, FieldId};
+use ghostcaret_engine::stop::Stopper;
 
 /// Results from the workers.
 pub(crate) enum WorkerMsg {
@@ -65,13 +65,13 @@ impl Workers {
         let complete = {
             let tx = tx.clone();
             thread::Builder::new()
-                .name("oft-complete".into())
+                .name("ghostcaret-complete".into())
                 .spawn(move || complete(&jobs_rx, &tx))?
         };
         let generate = {
             let tx = tx.clone();
             thread::Builder::new()
-                .name("oft-generate".into())
+                .name("ghostcaret-generate".into())
                 .spawn(move || generate(&gens_rx, &tx))?
         };
         Ok(Workers {
@@ -159,7 +159,7 @@ pub(crate) fn conversation_reader(
 ) -> io::Result<Sender<FieldId>> {
     let (tx, rx) = unbounded::<FieldId>();
     thread::Builder::new()
-        .name("oft-conversation".into())
+        .name("ghostcaret-conversation".into())
         .spawn(move || {
             for field in rx {
                 let conversation = backend.conversation(field);

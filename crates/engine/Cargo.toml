@@ -1,6 +1,6 @@
 [package]
-name = "oft-engine"
-description = "open-flowtype engine: suggestion logic, settings, prompts, and the contracts OS backends and model providers implement"
+name = "ghostcaret-engine"
+description = "ghostcaret engine: suggestion logic, settings, prompts, and the contracts OS backends and model providers implement"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -1,4 +1,4 @@
-# oft-bench
+# ghostcaret-bench
 
 The replay benchmark of [docs/quality.md](../../docs/quality.md#benchmark): it types public writing into a simulated field, lets the product ask a local model for suggestions at the typist's pauses, and counts what an ideal but honest user would have saved. Its results set the defaults (boldness, the curated models, the Auto ceilings), and any claim that Ghostcaret is better points to its report.
 
@@ -8,7 +8,7 @@ The replay benchmark of [docs/quality.md](../../docs/quality.md#benchmark): it t
 # CUDA build (set the architecture of your GPU; 86 is an RTX A500)
 PATH=/opt/cuda/bin:$PATH CUDA_PATH=/opt/cuda CMAKE_CUDA_ARCHITECTURES=86 \
 RUSTFLAGS="-C target-cpu=native" CARGO_TARGET_DIR=target/bench \
-cargo run -p oft-bench --release --features cuda -- run \
+cargo run -p ghostcaret-bench --release --features cuda -- run \
     --models qwen3.5-0.8b-base-q4_k_m,gemma-4-e2b-q4_k_m:20 --out target/bench-report
 ```
 
@@ -40,7 +40,7 @@ Cost: one model call per distinct caret position the sweep visits, about one per
 
 ## Method
 
-**The product decides.** Each sample is typed character by character into a simulated field around the real `oft_engine::controller::Controller`. The bench sends the field snapshots, key-gate events and pause timer a backend would send and runs each `Output::Complete` on the model with a `stop::Stopper`, as the app runtime does. So the prompt (`prompt::build` with the conversation, title and text before the caret), the stop rule (settings and the app's category), the cut into a suggestion (`stop::cut`), the silence rules and keeping a suggestion while it is typed through are the product's own code. Take Word, Take All and typing-through use the engine's `SuggestionView` methods, as the key gate does.
+**The product decides.** Each sample is typed character by character into a simulated field around the real `ghostcaret_engine::controller::Controller`. The bench sends the field snapshots, key-gate events and pause timer a backend would send and runs each `Output::Complete` on the model with a `stop::Stopper`, as the app runtime does. So the prompt (`prompt::build` with the conversation, title and text before the caret), the stop rule (settings and the app's category), the cut into a suggestion (`stop::cut`), the silence rules and keeping a suggestion while it is typed through are the product's own code. Take Word, Take All and typing-through use the engine's `SuggestionView` methods, as the key gate does.
 
 **Pause points** (`src/pause.rs`). A suggestion helps only when it is on screen before the next keystroke, so it is requested and seen where the next inter-key interval is at least the product's pause (30 ms) plus the latency target (100 ms): at every word boundary, right after an accept, and inside words where a log-normal inter-key interval drawn for that position is long enough. The distribution's mean, 238.66 ms, is the mean inter-key interval of 168,000 typists in Dhakal et al., [Observations on Typing from 136 Million Keystrokes](https://aaltodoc.aalto.fi/bitstreams/c175f9bb-8c83-40bc-8969-e179f4a3a6e6/download) (CHI 2018); its spread, σ = 0.5 for ln(interval), is an assumption. That makes about 83 % of positions inside words pause points. Draws come from a hash of the seed, the sample id and the position, so every configuration pauses at the same places and every run is identical.
 

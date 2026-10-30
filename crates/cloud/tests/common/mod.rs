@@ -14,12 +14,12 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use oft_cloud::{SentLog, Tuning, provider_with};
-use oft_engine::complete::{
+use ghostcaret_cloud::{SentLog, Tuning, provider_with};
+use ghostcaret_engine::complete::{
     CancelToken, CompletionRequest, LengthMode, Segments, StopCheck, StopParams,
 };
-use oft_engine::io::FieldId;
-use oft_engine::settings::{ProviderConfig, ProviderKind};
+use ghostcaret_engine::io::FieldId;
+use ghostcaret_engine::settings::{ProviderConfig, ProviderKind};
 use serde_json::Value;
 
 #[derive(Clone, Debug)]
@@ -386,7 +386,7 @@ pub fn tuning(mock: &Mock) -> Tuning {
     }
 }
 
-pub fn openai(mock: &Mock, key: Option<&str>, log: &SentLog) -> Arc<oft_cloud::Provider> {
+pub fn openai(mock: &Mock, key: Option<&str>, log: &SentLog) -> Arc<ghostcaret_cloud::Provider> {
     openai_with(mock, key, log, tuning(mock))
 }
 
@@ -395,7 +395,7 @@ pub fn openai_with(
     key: Option<&str>,
     log: &SentLog,
     tuning: Tuning,
-) -> Arc<oft_cloud::Provider> {
+) -> Arc<ghostcaret_cloud::Provider> {
     let config = ProviderConfig {
         id: "p".into(),
         label: "Test".into(),
@@ -407,7 +407,7 @@ pub fn openai_with(
     provider_with(&config, key.map(str::to_owned), log.clone(), tuning).unwrap()
 }
 
-pub fn anthropic(mock: &Mock, model: &str, log: &SentLog) -> Arc<oft_cloud::Provider> {
+pub fn anthropic(mock: &Mock, model: &str, log: &SentLog) -> Arc<ghostcaret_cloud::Provider> {
     let config = ProviderConfig {
         id: "p".into(),
         label: "Claude".into(),
@@ -417,7 +417,7 @@ pub fn anthropic(mock: &Mock, model: &str, log: &SentLog) -> Arc<oft_cloud::Prov
     provider_with(&config, Some(KEY.into()), log.clone(), tuning(mock)).unwrap()
 }
 
-pub fn gemini(mock: &Mock, model: &str, log: &SentLog) -> Arc<oft_cloud::Provider> {
+pub fn gemini(mock: &Mock, model: &str, log: &SentLog) -> Arc<ghostcaret_cloud::Provider> {
     let config = ProviderConfig {
         id: "p".into(),
         label: "Gem".into(),

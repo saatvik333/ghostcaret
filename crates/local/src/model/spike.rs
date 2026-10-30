@@ -2,7 +2,7 @@
 //! pay off (docs/architecture.md, "Local inference"). Ignored by default:
 //!
 //! ```text
-//! OFT_TEST_MODEL=<id|path> cargo test --release -p oft-local spike -- --ignored --nocapture
+//! GHOSTCARET_TEST_MODEL=<id|path> cargo test --release -p ghostcaret-local spike -- --ignored --nocapture
 //! ```
 
 use std::time::Instant;
@@ -35,12 +35,12 @@ fn ngram_draft_continues_the_latest_match() {
 }
 
 fn load() -> LocalModel {
-    let model = std::env::var("OFT_TEST_MODEL").expect("set OFT_TEST_MODEL");
+    let model = std::env::var("GHOSTCARET_TEST_MODEL").expect("set GHOSTCARET_TEST_MODEL");
     let path = ModelStore::default_dir()
         .map(ModelStore::new)
         .and_then(|s| s.resolve(&model))
         .unwrap_or_else(|| PathBuf::from(model));
-    let gpu_layers = std::env::var("OFT_TEST_GPU_LAYERS")
+    let gpu_layers = std::env::var("GHOSTCARET_TEST_GPU_LAYERS")
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(u32::MAX);
@@ -60,15 +60,15 @@ const CONTEXT: usize = 6200;
 fn request(before: &str) -> CompletionRequest {
     CompletionRequest {
         id: 1,
-        field: oft_engine::io::FieldId(1),
+        field: ghostcaret_engine::io::FieldId(1),
         revision: 1,
-        segments: oft_engine::complete::Segments {
+        segments: ghostcaret_engine::complete::Segments {
             before: before.into(),
             ..Default::default()
         },
-        stop: oft_engine::complete::StopParams {
-            mode: oft_engine::complete::LengthMode::Auto,
-            ceiling: oft_engine::complete::LengthMode::Sentence,
+        stop: ghostcaret_engine::complete::StopParams {
+            mode: ghostcaret_engine::complete::LengthMode::Auto,
+            ceiling: ghostcaret_engine::complete::LengthMode::Sentence,
             boldness: 0.5,
             paragraph_words: 60,
         },
@@ -114,7 +114,7 @@ fn batch_cost(e: &mut Engine, n_prompt: usize, b: usize) -> f64 {
 /// N-gram (prompt-lookup) speculative decoding: how many generated tokens
 /// the drafts would have confirmed, and what a batch with drafts costs.
 #[test]
-#[ignore = "needs OFT_TEST_MODEL"]
+#[ignore = "needs GHOSTCARET_TEST_MODEL"]
 fn spike_ngram_speculation() {
     const K: usize = 3;
     let model = load();
@@ -196,7 +196,7 @@ fn spike_ngram_speculation() {
 
 /// Size and cost of one state checkpoint for models with recurrent state.
 #[test]
-#[ignore = "needs OFT_TEST_MODEL"]
+#[ignore = "needs GHOSTCARET_TEST_MODEL"]
 fn spike_checkpoint_cost() {
     let model = load();
     model

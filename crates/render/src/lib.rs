@@ -16,8 +16,8 @@ mod text;
 
 use std::fmt;
 
-use oft_engine::io::{Bindings, CardView, Chord, Key, SuggestionView};
-use oft_engine::settings::GhostStyle;
+use ghostcaret_engine::io::{Bindings, CardView, Chord, Key, SuggestionView};
+use ghostcaret_engine::settings::GhostStyle;
 
 use paint::{Color, Rect};
 use text::{Line, Shaped, Text, TextStyle};
@@ -762,7 +762,7 @@ fn chord_label(chord: Chord) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oft_engine::io::Mods;
+    use ghostcaret_engine::io::Mods;
 
     fn view(text: &str, shown: usize) -> SuggestionView {
         SuggestionView {

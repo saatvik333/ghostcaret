@@ -5,9 +5,9 @@
 use std::cell::Cell;
 use std::ffi::c_void;
 
-use oft_engine::io::{Bindings, FieldId, Overlay, SuggestionView};
-use oft_engine::settings::{Appearance, GhostStyle};
-use oft_render::{Image, Renderer, Theme};
+use ghostcaret_engine::io::{Bindings, FieldId, Overlay, SuggestionView};
+use ghostcaret_engine::settings::{Appearance, GhostStyle};
+use ghostcaret_render::{Image, Renderer, Theme};
 use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, POINT, RECT, SIZE, WPARAM};
 use windows::Win32::Graphics::Gdi::{
     AC_SRC_ALPHA, AC_SRC_OVER, BI_RGB, BITMAPINFO, BITMAPINFOHEADER, BLENDFUNCTION,

@@ -6,8 +6,8 @@
 
 use std::fmt::Write as _;
 
-use oft_engine::complete::Segments;
-use oft_engine::io::Author;
+use ghostcaret_engine::complete::Segments;
+use ghostcaret_engine::io::Author;
 
 pub const TEMPLATE_VERSION: u32 = 1;
 
@@ -106,8 +106,8 @@ fn author(author: &Author) -> &str {
 
 /// Transcript format for chat requests on models without a usable chat
 /// template. Generation stops at [`PLAIN_STOP`].
-pub fn plain_chat(messages: &[oft_engine::complete::ChatMessage]) -> String {
-    use oft_engine::complete::Role;
+pub fn plain_chat(messages: &[ghostcaret_engine::complete::ChatMessage]) -> String {
+    use ghostcaret_engine::complete::Role;
     let mut out = String::new();
     for m in messages {
         let label = match m.role {
@@ -130,8 +130,8 @@ pub const PLAIN_STOP: &str = "\nUser:";
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oft_engine::complete::Segments;
-    use oft_engine::io::{AppInfo, Message};
+    use ghostcaret_engine::complete::Segments;
+    use ghostcaret_engine::io::{AppInfo, Message};
 
     fn segments(before: &str) -> Segments {
         Segments {

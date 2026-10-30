@@ -52,7 +52,7 @@ pub fn watch_pressure(on_pressure: impl Fn() + Send + 'static) {
         return;
     }
     let spawned = std::thread::Builder::new()
-        .name("oft-mempressure".into())
+        .name("ghostcaret-mempressure".into())
         .spawn(move || {
             let mut fds = libc::pollfd {
                 fd: file.as_raw_fd(),
@@ -96,7 +96,7 @@ pub fn watch_pressure(on_pressure: impl Fn() + Send + 'static) {
     }
     let handle = handle as usize;
     let spawned = std::thread::Builder::new()
-        .name("oft-mempressure".into())
+        .name("ghostcaret-mempressure".into())
         .spawn(move || {
             loop {
                 // SAFETY: the handle stays open for the life of the process.

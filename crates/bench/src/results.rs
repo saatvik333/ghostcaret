@@ -2,8 +2,8 @@
 
 use std::collections::BTreeMap;
 
-use oft_engine::complete::{LengthMode, StopParams};
-use oft_engine::settings::Settings;
+use ghostcaret_engine::complete::{LengthMode, StopParams};
+use ghostcaret_engine::settings::Settings;
 use serde::{Deserialize, Serialize};
 
 use crate::corpus::{Corpus, Kind};
@@ -146,12 +146,12 @@ impl EngineInfo {
     pub fn current() -> EngineInfo {
         let s = Settings::default();
         EngineInfo {
-            prompt_template_version: oft_local::TEMPLATE_VERSION,
-            settings_version: oft_engine::settings::SETTINGS_VERSION,
-            careful_threshold: oft_engine::stop::CAREFUL_THRESHOLD,
-            bold_threshold: oft_engine::stop::BOLD_THRESHOLD,
-            phrase_min_words: oft_engine::stop::PHRASE_MIN_WORDS,
-            phrase_max_words: oft_engine::stop::PHRASE_MAX_WORDS,
+            prompt_template_version: ghostcaret_local::TEMPLATE_VERSION,
+            settings_version: ghostcaret_engine::settings::SETTINGS_VERSION,
+            careful_threshold: ghostcaret_engine::stop::CAREFUL_THRESHOLD,
+            bold_threshold: ghostcaret_engine::stop::BOLD_THRESHOLD,
+            phrase_min_words: ghostcaret_engine::stop::PHRASE_MIN_WORDS,
+            phrase_max_words: ghostcaret_engine::stop::PHRASE_MAX_WORDS,
             paragraph_words: s.paragraph_words,
             pause_ms: s.pause_ms,
             default_boldness: s.boldness,

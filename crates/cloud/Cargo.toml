@@ -1,6 +1,6 @@
 [package]
-name = "oft-cloud"
-description = "Cloud model providers (OpenAI-compatible, Anthropic, Gemini) and Flow Draft generation"
+name = "ghostcaret-cloud"
+description = "Cloud model providers (OpenAI-compatible, Anthropic, Gemini) and Reply & rewrite generation"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,7 +8,7 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
-oft-engine.workspace = true
+ghostcaret-engine.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

@@ -1,8 +1,8 @@
 mod common;
 
 use common::*;
-use oft_cloud::SentLog;
-use oft_engine::complete::{
+use ghostcaret_cloud::SentLog;
+use ghostcaret_engine::complete::{
     ChatMessage, CompleteError, Completer, GenerateRequest, Generator, Role,
 };
 use serde_json::json;
@@ -163,7 +163,7 @@ fn thinking_blocks_and_tool_blocks_are_not_text() {
 }
 
 #[test]
-fn overload_is_transient_for_flow_draft_but_never_retried_for_autocomplete() {
+fn overload_is_transient_for_reply_but_never_retried_for_autocomplete() {
     let overloaded = ev(
         "error",
         json!({"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}),
@@ -288,7 +288,7 @@ fn model_list_follows_pagination_and_test_connection_reports_the_provider_text()
 
 #[test]
 fn anthropic_and_gemini_require_a_key() {
-    use oft_engine::settings::{ProviderConfig, ProviderKind};
+    use ghostcaret_engine::settings::{ProviderConfig, ProviderKind};
     for kind in [ProviderKind::Anthropic, ProviderKind::Gemini] {
         let config = ProviderConfig {
             id: "p".into(),
@@ -298,8 +298,8 @@ fn anthropic_and_gemini_require_a_key() {
         };
         for key in [None, Some("  ".to_owned())] {
             assert!(matches!(
-                oft_cloud::provider(&config, key, SentLog::default()),
-                Err(oft_cloud::ProviderError::Config(_))
+                ghostcaret_cloud::provider(&config, key, SentLog::default()),
+                Err(ghostcaret_cloud::ProviderError::Config(_))
             ));
         }
     }

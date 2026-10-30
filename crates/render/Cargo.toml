@@ -1,5 +1,5 @@
 [package]
-name = "oft-render"
+name = "ghostcaret-render"
 description = "Software renderer for the suggestion overlay and the Reply & rewrite card"
 version.workspace = true
 edition.workspace = true
@@ -8,7 +8,7 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
-oft-engine.workspace = true
+ghostcaret-engine.workspace = true
 # Shaping (including complex scripts), font fallback per cluster, line-break
 # analysis, hinted scaling and colour-emoji rasterising in one pure-Rust
 # crate. Alternatives: cosmic-text bundles swash plus rustybuzz and a fontdb

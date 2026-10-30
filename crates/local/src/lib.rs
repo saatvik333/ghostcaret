@@ -1,7 +1,7 @@
 //! Local inference through llama.cpp, and the local model store.
 //!
-//! [`LocalModel`] implements the engine's [`Completer`](oft_engine::complete::Completer)
-//! and [`Generator`](oft_engine::complete::Generator) for a GGUF model;
+//! [`LocalModel`] implements the engine's [`Completer`](ghostcaret_engine::complete::Completer)
+//! and [`Generator`](ghostcaret_engine::complete::Generator) for a GGUF model;
 //! [`store`] holds the curated manifest and the downloaded models.
 
 mod heal;

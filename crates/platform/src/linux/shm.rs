@@ -114,7 +114,8 @@ impl Buffers {
 
     fn grow(&mut self, shm: &WlShm, qh: &QueueHandle<State>, bytes: usize) -> Option<()> {
         let slot_bytes = bytes.next_power_of_two().max(64 * 1024);
-        let fd = rustix::fs::memfd_create("oft-popup", rustix::fs::MemfdFlags::CLOEXEC).ok()?;
+        let fd =
+            rustix::fs::memfd_create("ghostcaret-popup", rustix::fs::MemfdFlags::CLOEXEC).ok()?;
         let file = File::from(fd);
         file.set_len((2 * slot_bytes) as u64).ok()?;
         // SAFETY: the file is a fresh memfd only this process and the

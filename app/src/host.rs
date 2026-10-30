@@ -4,8 +4,8 @@
 
 use std::sync::{Arc, Mutex};
 
-use oft_engine::settings::Settings;
-use oft_runtime::StatusView;
+use ghostcaret_engine::settings::Settings;
+use ghostcaret_runtime::StatusView;
 use tauri::{AppHandle, Manager};
 
 use crate::{AppState, commands, keychain, lock, refresh_tray};
@@ -22,7 +22,7 @@ impl DesktopHost {
     }
 }
 
-impl oft_runtime::Host for DesktopHost {
+impl ghostcaret_runtime::Host for DesktopHost {
     /// The app validates settings before saving them, and reports a rejected
     /// file itself while running on defaults, so this never fails.
     fn settings(&self) -> Result<Settings, String> {

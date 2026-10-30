@@ -6,10 +6,10 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use crossbeam_channel::Sender;
-use oft_engine::io::{
+use ghostcaret_engine::io::{
     Backend, Bindings, Conversation, Event, FieldId, InsertOutcome, InsertRequest, Overlay,
 };
-use oft_engine::settings::Appearance;
+use ghostcaret_engine::settings::Appearance;
 
 use super::mailbox::{self, Mailbox};
 use super::{hook, insert, overlay, uia};

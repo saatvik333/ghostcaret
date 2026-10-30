@@ -34,7 +34,7 @@ export interface Bindings {
   next_alternative: Chord | null;
   prev_alternative: Chord | null;
   dismiss: Chord | null;
-  flow_draft: Trigger | null;
+  reply: Trigger | null;
 }
 export type Slot = keyof Bindings;
 
@@ -79,7 +79,7 @@ export interface CustomAction {
   instruction: string;
 }
 
-export interface FlowDraftSettings {
+export interface ReplySettings {
   enabled: boolean;
   auto_offer: boolean;
   custom_actions: CustomAction[];
@@ -112,7 +112,7 @@ export interface Settings {
   draft_model: ModelChoice;
   providers: ProviderConfig[];
   context: ContextSettings;
-  flow_draft: FlowDraftSettings;
+  reply: ReplySettings;
   apps: Record<string, AppRule>;
   daily_request_cap: number | null;
   low_power: boolean;

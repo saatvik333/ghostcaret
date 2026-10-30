@@ -17,11 +17,11 @@ CPU=target/local-native/release/examples/measure
 GPU=target/local-cuda/release/examples/measure
 
 RUSTFLAGS="-C target-cpu=native" CARGO_TARGET_DIR=target/local-native \
-    cargo build --release -p oft-local --example measure >&2
+    cargo build --release -p ghostcaret-local --example measure >&2
 if command -v nvcc >/dev/null 2>&1 || [ -x /opt/cuda/bin/nvcc ]; then
     PATH=/opt/cuda/bin:$PATH CUDA_PATH=${CUDA_PATH:-/opt/cuda} CMAKE_CUDA_ARCHITECTURES=${CUDA_ARCH:-86} \
         RUSTFLAGS="-C target-cpu=native" CARGO_TARGET_DIR=target/local-cuda \
-        cargo build --release -p oft-local --features cuda --example measure >&2
+        cargo build --release -p ghostcaret-local --features cuda --example measure >&2
 else
     GPU=
 fi
@@ -67,7 +67,7 @@ done
 # Spike measurements: n-gram drafting acceptance and batch cost, and the
 # size and cost of state checkpoints.
 for model in qwen3.5-2b-base-q4_k_m qwen3-1.7b-base-q4_k_m; do
-    OFT_TEST_MODEL=$model OFT_TEST_GPU_LAYERS=0 RUSTFLAGS="-C target-cpu=native" CARGO_TARGET_DIR=target/local-native \
-        cargo test --release -p oft-local --lib spike -- --ignored --nocapture --test-threads 1 2>&1 \
+    GHOSTCARET_TEST_MODEL=$model GHOSTCARET_TEST_GPU_LAYERS=0 RUSTFLAGS="-C target-cpu=native" CARGO_TARGET_DIR=target/local-native \
+        cargo test --release -p ghostcaret-local --lib spike -- --ignored --nocapture --test-threads 1 2>&1 \
         | grep -E '^[A-Za-z].*(tokens/step|batch cost|partial state)' >&2
 done

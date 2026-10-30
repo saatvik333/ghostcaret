@@ -1,12 +1,12 @@
 //! Replay benchmark: keystroke savings, wrong-suggestion rate and latency.
 //!
 //! ```text
-//! oft-bench run [--models ID[:GPU_LAYERS],…] [--corpora ID,…] [--samples N]
+//! ghostcaret-bench run [--models ID[:GPU_LAYERS],…] [--corpora ID,…] [--samples N]
 //!               [--modes word,phrase,sentence,auto] [--ceilings phrase,sentence,paragraph]
 //!               [--boldness 0,0.25,0.5,0.75,1] [--out DIR] [--data-dir DIR]
 //!               [--seed N] [--max-load F] [--ctx N] [--threads N]
-//! oft-bench corpora [--data-dir DIR] [--show]
-//! oft-bench report [--out DIR]
+//! ghostcaret-bench corpora [--data-dir DIR] [--show]
+//! ghostcaret-bench report [--out DIR]
 //! ```
 //!
 //! `run` downloads and verifies the corpora, replays every sample under every
@@ -33,11 +33,11 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Instant;
 
-use oft_engine::complete::{Completer, LengthMode, StopParams};
-use oft_engine::io::AppInfo;
-use oft_engine::settings::Settings;
-use oft_local::store::{Manifest, ModelStore, sha256_file};
-use oft_local::{LoadOptions, LocalModel};
+use ghostcaret_engine::complete::{Completer, LengthMode, StopParams};
+use ghostcaret_engine::io::AppInfo;
+use ghostcaret_engine::settings::Settings;
+use ghostcaret_local::store::{Manifest, ModelStore, sha256_file};
+use ghostcaret_local::{LoadOptions, LocalModel};
 
 use crate::corpus::{CORPORA, Corpus};
 use crate::metrics::Tally;
@@ -62,7 +62,7 @@ struct Args {
     show: bool,
 }
 
-const USAGE: &str = "usage: oft-bench run|corpora|report [options]; see the source header or crates/bench/README.md";
+const USAGE: &str = "usage: ghostcaret-bench run|corpora|report [options]; see the source header or crates/bench/README.md";
 
 fn parse_args() -> Result<Args, String> {
     let mut it = std::env::args().skip(1);
@@ -185,7 +185,7 @@ fn main() -> ExitCode {
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            eprintln!("oft-bench: {e}");
+            eprintln!("ghostcaret-bench: {e}");
             ExitCode::FAILURE
         }
     }
@@ -267,7 +267,7 @@ fn run(a: &Args) -> Result<(), String> {
     let pauses = PauseModel::new(a.seed, Settings::default().pause_ms);
     let mut results = Results {
         schema: SCHEMA,
-        tool: concat!("oft-bench ", env!("CARGO_PKG_VERSION")).into(),
+        tool: concat!("ghostcaret-bench ", env!("CARGO_PKG_VERSION")).into(),
         engine: EngineInfo::current(),
         method: Method {
             pause: pauses,

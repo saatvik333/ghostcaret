@@ -12,7 +12,7 @@
 //!
 //! "What comes next" means the rest of the text starts with the suggested
 //! text **and** the suggested text ends where the real text has a word unit
-//! end or a boundary ([`oft_engine::text`]). So `see` is not accepted when the
+//! end or a boundary ([`ghostcaret_engine::text`]). So `see` is not accepted when the
 //! user is about to write `seeing`: the suggestion predicted another word,
 //! and the user would not accept a fragment of the wrong word.
 //!
@@ -20,8 +20,8 @@
 //! character), so the user types it instead; the count of keystrokes is the
 //! same either way.
 
-use oft_engine::io::SuggestionView;
-use oft_engine::text::{boundaries, word_units};
+use ghostcaret_engine::io::SuggestionView;
+use ghostcaret_engine::text::{boundaries, word_units};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Decision {

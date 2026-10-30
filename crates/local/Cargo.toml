@@ -1,5 +1,5 @@
 [package]
-name = "oft-local"
+name = "ghostcaret-local"
 description = "Local inference through llama.cpp, and the local model store"
 version.workspace = true
 edition.workspace = true
@@ -18,7 +18,7 @@ openmp = ["llama-cpp-sys-2/openmp"]
 dynamic-backends = ["llama-cpp-sys-2/dynamic-backends"]
 
 [dependencies]
-oft-engine.workspace = true
+ghostcaret-engine.workspace = true
 thiserror.workspace = true
 log.workspace = true
 llama-cpp-sys-2 = { version = "=0.1.160", default-features = false }

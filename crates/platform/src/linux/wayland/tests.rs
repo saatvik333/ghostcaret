@@ -8,7 +8,7 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use crossbeam_channel::{Receiver, Sender};
-use oft_engine::io::{Event, FieldId, InsertOutcome, InsertRequest, Replace};
+use ghostcaret_engine::io::{Event, FieldId, InsertOutcome, InsertRequest, Replace};
 use rustix::event::{PollFd, PollFlags, Timespec};
 use wayland_client::Connection;
 use wayland_protocols_misc::zwp_input_method_v2::server::zwp_input_method_keyboard_grab_v2::ZwpInputMethodKeyboardGrabV2;

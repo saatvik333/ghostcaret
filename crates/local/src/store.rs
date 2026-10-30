@@ -10,7 +10,7 @@ use std::io::{self, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use oft_engine::complete::CancelToken;
+use ghostcaret_engine::complete::CancelToken;
 use sha2::{Digest, Sha256};
 
 /// Which slot of the product a model fills; provisional until the benchmark
@@ -493,8 +493,10 @@ mod tests {
     }
 
     fn scratch(name: &str) -> PathBuf {
-        let dir =
-            std::env::temp_dir().join(format!("oft-local-store-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!(
+            "ghostcaret-local-store-{name}-{}",
+            std::process::id()
+        ));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir
@@ -524,16 +526,17 @@ mod tests {
 
     #[test]
     fn a_missing_store_lists_nothing() {
-        let store = ModelStore::new(std::env::temp_dir().join("oft-local-store-does-not-exist"));
+        let store =
+            ModelStore::new(std::env::temp_dir().join("ghostcaret-local-store-does-not-exist"));
         assert!(store.installed().unwrap().is_empty());
     }
 
-    /// Downloads the smallest curated model when `OFT_TEST_DOWNLOAD=1`,
+    /// Downloads the smallest curated model when `GHOSTCARET_TEST_DOWNLOAD=1`,
     /// interrupting it once to exercise the resume path.
     #[test]
-    #[ignore = "downloads 0.5 GB; run with OFT_TEST_DOWNLOAD=1"]
+    #[ignore = "downloads 0.5 GB; run with GHOSTCARET_TEST_DOWNLOAD=1"]
     fn download_resumes_and_verifies() {
-        if std::env::var_os("OFT_TEST_DOWNLOAD").is_none() {
+        if std::env::var_os("GHOSTCARET_TEST_DOWNLOAD").is_none() {
             return;
         }
         let dir = scratch("download");

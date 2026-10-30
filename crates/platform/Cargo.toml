@@ -1,5 +1,5 @@
 [package]
-name = "oft-platform"
+name = "ghostcaret-platform"
 description = "OS backends: read the focused field, gate keys, show the overlay, insert text"
 version.workspace = true
 edition.workspace = true
@@ -8,14 +8,14 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
-oft-engine.workspace = true
+ghostcaret-engine.workspace = true
 crossbeam-channel.workspace = true
 thiserror.workspace = true
 log.workspace = true
 
 # Linux backend: native Wayland input method.
 [target.'cfg(target_os = "linux")'.dependencies]
-oft-render.workspace = true
+ghostcaret-render.workspace = true
 # Pure-Rust Wayland client; no libwayland at run time.
 wayland-client = "0.31"
 wayland-protocols = { version = "0.32", features = ["client", "staging", "unstable"] }
@@ -33,7 +33,7 @@ serde.workspace = true
 
 # Windows backend: UI Automation, low-level hook, layered overlay, SendInput.
 [target.'cfg(target_os = "windows")'.dependencies]
-oft-render.workspace = true
+ghostcaret-render.workspace = true
 # Caret stops for Shift+Arrow selection when replacing text.
 unicode-segmentation = "1"
 windows = { version = "0.62", features = [

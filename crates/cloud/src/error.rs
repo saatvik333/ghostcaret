@@ -1,7 +1,7 @@
 use std::fmt;
 use std::time::Duration;
 
-use oft_engine::complete::CompleteError;
+use ghostcaret_engine::complete::CompleteError;
 
 /// Why a provider call failed. `Display` is the text to show the user: for
 /// rejected requests it is the provider's own error message.

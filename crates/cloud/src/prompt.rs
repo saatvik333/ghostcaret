@@ -8,8 +8,8 @@
 use std::fmt::Write;
 use std::ops::Range;
 
-use oft_engine::complete::{CompletionRequest, LengthMode, Segments, StopParams};
-use oft_engine::io::{Author, FieldKind};
+use ghostcaret_engine::complete::{CompletionRequest, LengthMode, Segments, StopParams};
+use ghostcaret_engine::io::{Author, FieldKind};
 
 pub(crate) const OPEN: &str = "<continuation>";
 pub(crate) const CLOSE: &str = "</continuation>";
@@ -330,7 +330,7 @@ fn skip_repeat(before: &str, t: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oft_engine::io::{AppInfo, Message};
+    use ghostcaret_engine::io::{AppInfo, Message};
     use proptest::prelude::*;
 
     fn shape<'a>(before: &'a str, chat: bool) -> Shape<'a> {

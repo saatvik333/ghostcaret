@@ -53,7 +53,7 @@ mod tests {
 
     #[test]
     fn resumes_at_saved_step() {
-        let dir = std::env::temp_dir().join(format!("oft-setup-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("ghostcaret-setup-{}", std::process::id()));
         let store = SetupStore::new(&dir);
         assert_eq!(store.load(), Step::Welcome);
         store.save(Step::Practice).unwrap();

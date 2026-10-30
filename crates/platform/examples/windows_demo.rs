@@ -8,7 +8,7 @@
 //! the key gate's p50 and p99 are printed at exit.
 //!
 //! ```sh
-//! cargo xwin build -p oft-platform --example windows_demo --target x86_64-pc-windows-msvc --release
+//! cargo xwin build -p ghostcaret-platform --example windows_demo --target x86_64-pc-windows-msvc --release
 //! windows_demo.exe 120   # seconds to run, on Windows
 //! ```
 
@@ -17,7 +17,7 @@ mod demo {
     use std::sync::Arc;
     use std::time::{Duration, Instant};
 
-    use oft_engine::io::{
+    use ghostcaret_engine::io::{
         Action, Backend, CardKey, CardView, Event, FieldId, FieldSnapshot, InsertRequest, Overlay,
         Replace, SuggestionView,
     };
@@ -238,7 +238,7 @@ mod demo {
             .and_then(|a| a.parse().ok())
             .unwrap_or(120);
         let (tx, rx) = crossbeam_channel::unbounded();
-        let backend = match oft_platform::start(tx) {
+        let backend = match ghostcaret_platform::start(tx) {
             Ok(b) => b,
             Err(e) => {
                 eprintln!("cannot start: {e}");
@@ -278,7 +278,7 @@ mod demo {
                     demo.snapshot = None;
                     demo.card = None;
                 }
-                Event::Action(Action::FlowDraft) => {
+                Event::Action(Action::Reply) => {
                     println!("Action(ReplyAndRewrite)");
                     demo.open_card();
                 }
@@ -298,7 +298,7 @@ mod demo {
             }
         }
         drop(demo);
-        let s = oft_platform::windows::gate_latency();
+        let s = ghostcaret_platform::windows::gate_latency();
         println!(
             "key gate over {} key events: p50 {:.1} µs, p99 {:.1} µs, max {:.1} µs",
             s.count,

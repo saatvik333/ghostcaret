@@ -1,8 +1,8 @@
 mod common;
 
 use common::*;
-use oft_cloud::SentLog;
-use oft_engine::complete::{
+use ghostcaret_cloud::SentLog;
+use ghostcaret_engine::complete::{
     ChatMessage, CompleteError, Completer, GenerateRequest, Generator, Role,
 };
 use serde_json::{Value, json};
@@ -176,7 +176,7 @@ fn blocked_prompts_and_errors_are_reported_with_the_providers_words() {
 }
 
 #[test]
-fn flow_draft_maps_roles_and_retries_resource_exhaustion() {
+fn reply_maps_roles_and_retries_resource_exhaustion() {
     let mock = Mock::script(vec![
         Reply::status(
             429,

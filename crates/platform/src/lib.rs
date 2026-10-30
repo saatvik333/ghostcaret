@@ -1,4 +1,4 @@
-//! OS backends implementing [`oft_engine::io::Backend`].
+//! OS backends implementing [`ghostcaret_engine::io::Backend`].
 //!
 //! - Linux: a native Wayland input method (`zwp_input_method_v2`), with the
 //!   overlay drawn in an input-method popup surface.
@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use crossbeam_channel::Sender;
-use oft_engine::io::{Backend, Event};
+use ghostcaret_engine::io::{Backend, Event};
 
 #[cfg(any(target_os = "linux", target_os = "windows", test))]
 mod gate;

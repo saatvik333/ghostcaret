@@ -2,12 +2,12 @@
 //! the controller's keystroke path (docs/quality.md, "Tests").
 
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
-use oft_engine::complete::{Candidate, Caps, Completion, LengthMode, StopCheck, StopParams};
-use oft_engine::controller::{Controller, Feature, Input, Output, TimerId};
-use oft_engine::io::{AppInfo, Event, FieldId, FieldSnapshot};
-use oft_engine::settings::Settings;
-use oft_engine::stop::{CutContext, Stopper, cut};
-use oft_engine::{filter, prompt};
+use ghostcaret_engine::complete::{Candidate, Caps, Completion, LengthMode, StopCheck, StopParams};
+use ghostcaret_engine::controller::{Controller, Feature, Input, Output, TimerId};
+use ghostcaret_engine::io::{AppInfo, Event, FieldId, FieldSnapshot};
+use ghostcaret_engine::settings::Settings;
+use ghostcaret_engine::stop::{CutContext, Stopper, cut};
+use ghostcaret_engine::{filter, prompt};
 
 const BEFORE: &str = "Thanks for sending the draft over. I read through it this morning and";
 const CONTINUATION: &str = " I think the structure works well, although the second section could be shorter. \

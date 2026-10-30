@@ -1,6 +1,6 @@
 [package]
-name = "open-flowtype"
-description = "open-flowtype desktop and mobile app"
+name = "ghostcaret"
+description = "ghostcaret desktop and mobile app"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,27 +8,27 @@ rust-version.workspace = true
 publish = false
 
 [lib]
-name = "open_flowtype_lib"
+name = "ghostcaret_lib"
 
 [features]
 default = ["local"]
 # Local inference through llama.cpp.
-local = ["dep:oft-local", "oft-runtime/local"]
+local = ["dep:ghostcaret-local", "ghostcaret-runtime/local"]
 # GPU backends for llama.cpp.
-cuda = ["local", "oft-local?/cuda"]
-vulkan = ["local", "oft-local?/vulkan"]
+cuda = ["local", "ghostcaret-local?/cuda"]
+vulkan = ["local", "ghostcaret-local?/vulkan"]
 # llama.cpp CPU backends as DLLs with run-time selection of the best variant
 # for the processor (the Windows release build; ship the DLLs beside the exe).
-dynamic-backends = ["local", "oft-local?/dynamic-backends"]
+dynamic-backends = ["local", "ghostcaret-local?/dynamic-backends"]
 
 [build-dependencies]
 tauri-build = { version = "2.5", features = [] }
 
 [dependencies]
-oft-engine.workspace = true
-oft-cloud.workspace = true
-oft-store.workspace = true
-oft-local = { workspace = true, optional = true }
+ghostcaret-engine.workspace = true
+ghostcaret-cloud.workspace = true
+ghostcaret-store.workspace = true
+ghostcaret-local = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 toml.workspace = true
@@ -39,8 +39,8 @@ directories = "6"
 keyring = "4"
 
 [target.'cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))'.dependencies]
-oft-platform.workspace = true
-oft-runtime.workspace = true
+ghostcaret-platform.workspace = true
+ghostcaret-runtime.workspace = true
 tauri = { version = "2.12", features = ["tray-icon", "image-png"] }
 tauri-plugin-single-instance = "2.5"
 

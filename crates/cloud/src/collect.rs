@@ -1,7 +1,7 @@
 //! Turns streamed chunks into a [`Candidate`]: runs the engine's stop rule on
 //! the cleaned text as it grows and maps provider tokens onto the final text.
 
-use oft_engine::complete::{Candidate, StopCheck};
+use ghostcaret_engine::complete::{Candidate, StopCheck};
 
 use crate::prompt::{Shape, clean};
 use crate::sse::Flow;

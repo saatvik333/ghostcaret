@@ -1,5 +1,5 @@
 [package]
-name = "oft-runtime"
+name = "ghostcaret-runtime"
 description = "The runtime that drives the engine controller: worker threads, timers, models, stores"
 version.workspace = true
 edition.workspace = true
@@ -10,13 +10,13 @@ publish = false
 [features]
 # Local inference through llama.cpp. Without it, settings that choose a
 # local model report that this build has none.
-local = ["dep:oft-local"]
+local = ["dep:ghostcaret-local"]
 
 [dependencies]
-oft-engine.workspace = true
-oft-cloud.workspace = true
-oft-store.workspace = true
-oft-local = { workspace = true, optional = true }
+ghostcaret-engine.workspace = true
+ghostcaret-cloud.workspace = true
+ghostcaret-store.workspace = true
+ghostcaret-local = { workspace = true, optional = true }
 crossbeam-channel.workspace = true
 serde.workspace = true
 log.workspace = true

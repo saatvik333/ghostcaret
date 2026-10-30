@@ -3,17 +3,17 @@
 
 use std::time::Duration;
 
-use oft_engine::complete::{
+use ghostcaret_engine::complete::{
     Candidate, Caps, CompleteError, Completion, CompletionRequest, LengthMode,
 };
-use oft_engine::controller::{
+use ghostcaret_engine::controller::{
     Controller, Feature, GenerateUpdate, Input, Output, Pause, Stat, Status, TimerId,
 };
-use oft_engine::io::{
+use ghostcaret_engine::io::{
     Action, AppInfo, Author, CardKey, CardView, Conversation, DismissReason, Event, FieldId,
     FieldKind, FieldSnapshot, InsertOutcome, Message, Overlay, Replace, SuggestionView,
 };
-use oft_engine::settings::{AppRule, Settings};
+use ghostcaret_engine::settings::{AppRule, Settings};
 
 const LOCAL: Caps = Caps {
     token_probs: false,
@@ -31,7 +31,7 @@ fn controller_with(settings: Settings, caps: Caps) -> Controller {
         caps: Some(caps),
     });
     c.handle(Input::Caps {
-        feature: Feature::FlowDraft,
+        feature: Feature::Reply,
         caps: Some(caps),
     });
     c
@@ -139,7 +139,7 @@ fn show(c: &mut Controller, app: &str, before: &str, texts: &[&str]) -> Suggesti
         .unwrap_or_else(|| panic!("no suggestion in {out:?}"))
 }
 
-fn generates(out: &[Output]) -> Vec<&oft_engine::complete::GenerateRequest> {
+fn generates(out: &[Output]) -> Vec<&ghostcaret_engine::complete::GenerateRequest> {
     out.iter()
         .filter_map(|o| {
             if let Output::Generate(r) = o {
@@ -293,7 +293,7 @@ fn password_fields_stay_silent() {
         "{out:?}"
     );
     assert!(c.handle(Input::Timer(TimerId::Pause)).is_empty());
-    assert!(ev(&mut c, Event::Action(Action::FlowDraft)).is_empty());
+    assert!(ev(&mut c, Event::Action(Action::Reply)).is_empty());
 }
 
 #[test]
@@ -669,7 +669,7 @@ fn reply_flow_through_insert() {
     let mut c = controller();
     let out = ev(&mut c, Event::Focus(snap(1, 1, CHAT, "")));
     assert!(out.contains(&Output::ReadConversation(FieldId(1))));
-    let out = ev(&mut c, Event::Action(Action::FlowDraft));
+    let out = ev(&mut c, Event::Action(Action::Reply));
     assert!(out.contains(&Output::ReadConversation(FieldId(1))));
     assert_eq!(card(&out).title, "Reply");
     let out = c.handle(Input::Conversation {
@@ -746,7 +746,7 @@ fn reply_flow_through_insert() {
 fn invalid_directions_retry_once_then_ask() {
     let mut c = controller();
     ev(&mut c, Event::Focus(snap(1, 1, CHAT, "")));
-    ev(&mut c, Event::Action(Action::FlowDraft));
+    ev(&mut c, Event::Action(Action::Reply));
     let out = c.handle(Input::Conversation {
         field: FieldId(1),
         conversation: Some(chat_messages()),
@@ -775,7 +775,7 @@ fn invalid_directions_retry_once_then_ask() {
 fn without_a_conversation_directions_use_the_field_text() {
     let mut c = controller();
     ev(&mut c, Event::Focus(snap(1, 1, CHAT, "Thanks for")));
-    ev(&mut c, Event::Action(Action::FlowDraft));
+    ev(&mut c, Event::Action(Action::Reply));
     let out = c.handle(Input::Conversation {
         field: FieldId(1),
         conversation: None,
@@ -788,7 +788,7 @@ fn without_a_conversation_directions_use_the_field_text() {
 fn without_anything_to_reply_to_the_card_asks_for_a_direction() {
     let mut c = controller();
     ev(&mut c, Event::Focus(snap(1, 1, CHAT, "")));
-    ev(&mut c, Event::Action(Action::FlowDraft));
+    ev(&mut c, Event::Action(Action::Reply));
     let out = c.handle(Input::Conversation {
         field: FieldId(1),
         conversation: None,
@@ -805,7 +805,7 @@ fn rewrite_flow_with_translate_and_unknown_insert() {
     let mut s = snap(1, 1, CHAT, "Hi ");
     s.selection = "teh cat".into();
     ev(&mut c, Event::Focus(s));
-    let out = ev(&mut c, Event::Action(Action::FlowDraft));
+    let out = ev(&mut c, Event::Action(Action::Reply));
     assert!(!out.iter().any(|o| matches!(o, Output::ReadConversation(_))));
     let view = card(&out);
     assert_eq!(view.title, "Rewrite");
@@ -861,7 +861,7 @@ fn rewrite_flow_with_translate_and_unknown_insert() {
 fn card_escape_cancels_generation_and_focus_closes_it() {
     let mut c = controller();
     ev(&mut c, Event::Focus(snap(1, 1, CHAT, "")));
-    ev(&mut c, Event::Action(Action::FlowDraft));
+    ev(&mut c, Event::Action(Action::Reply));
     let out = c.handle(Input::Conversation {
         field: FieldId(1),
         conversation: Some(chat_messages()),
@@ -869,7 +869,7 @@ fn card_escape_cancels_generation_and_focus_closes_it() {
     let id = generates(&out)[0].id;
     let out = ev(&mut c, Event::CardKey(CardKey::Escape));
     assert!(out.contains(&Output::CancelGenerate(id)) && hidden(&out));
-    ev(&mut c, Event::Action(Action::FlowDraft));
+    ev(&mut c, Event::Action(Action::Reply));
     let out = ev(&mut c, Event::Focus(snap(2, 1, CHAT, "")));
     assert!(hidden(&out));
 }
@@ -878,11 +878,11 @@ fn card_escape_cancels_generation_and_focus_closes_it() {
 fn reply_without_a_draft_model_says_so() {
     let mut c = controller();
     c.handle(Input::Caps {
-        feature: Feature::FlowDraft,
+        feature: Feature::Reply,
         caps: None,
     });
     ev(&mut c, Event::Focus(snap(1, 1, CHAT, "")));
-    let out = ev(&mut c, Event::Action(Action::FlowDraft));
+    let out = ev(&mut c, Event::Action(Action::Reply));
     assert!(card(&out).status.is_some());
     assert!(
         generates(&out).is_empty() && !out.iter().any(|o| matches!(o, Output::ReadConversation(_)))
@@ -893,7 +893,7 @@ fn reply_without_a_draft_model_says_so() {
 fn draft_errors_show_in_the_card() {
     let mut c = controller();
     ev(&mut c, Event::Focus(snap(1, 1, CHAT, "")));
-    ev(&mut c, Event::Action(Action::FlowDraft));
+    ev(&mut c, Event::Action(Action::Reply));
     c.handle(Input::Conversation {
         field: FieldId(1),
         conversation: None,
@@ -924,7 +924,7 @@ fn enter_without_a_language_waits() {
     let mut s = snap(1, 1, CHAT, "");
     s.selection = "teh cat".into();
     ev(&mut c, Event::Focus(s));
-    ev(&mut c, Event::Action(Action::FlowDraft));
+    ev(&mut c, Event::Action(Action::Reply));
     ev(&mut c, Event::CardKey(CardKey::Pick(5)));
     let out = ev(&mut c, Event::CardKey(CardKey::Enter));
     assert!(generates(&out).is_empty(), "{out:?}");

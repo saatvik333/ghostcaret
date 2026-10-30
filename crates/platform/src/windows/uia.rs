@@ -15,7 +15,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use crossbeam_channel::Sender;
-use oft_engine::io::{
+use ghostcaret_engine::io::{
     AppInfo, BackendStatus, Conversation, Event, FieldId, FieldKind, FieldSnapshot, InsertOutcome,
     MAX_AFTER, MAX_BEFORE, Rect,
 };

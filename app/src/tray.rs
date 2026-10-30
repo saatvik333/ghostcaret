@@ -1,7 +1,7 @@
 //! The tray icon: status, pause, settings and quit.
 
-use oft_runtime::pause::{PauseFor, Scope};
-use oft_runtime::{Command, StatusKind, StatusView};
+use ghostcaret_runtime::pause::{PauseFor, Scope};
+use ghostcaret_runtime::{Command, StatusKind, StatusView};
 use tauri::menu::{IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, Wry};

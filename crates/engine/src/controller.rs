@@ -31,7 +31,7 @@
 //!
 //! # Reply & rewrite
 //!
-//! [`Action::FlowDraft`] opens a rewrite card when text is selected and a
+//! [`Action::Reply`] opens a rewrite card when text is selected and a
 //! reply card otherwise. A reply card reads the conversation, asks for three
 //! directions (retrying once when they come back invalid), and drafts the
 //! chosen or typed direction into a streamed preview; a rewrite card offers
@@ -83,7 +83,7 @@ pub enum Feature {
     /// Suggestions while typing.
     Autocomplete,
     /// Reply & rewrite.
-    FlowDraft,
+    Reply,
 }
 
 /// Progress of a [`Output::Generate`] request.
@@ -576,7 +576,7 @@ impl Controller {
                 self.update_status(&mut out);
             }
             Input::Caps {
-                feature: Feature::FlowDraft,
+                feature: Feature::Reply,
                 caps,
             } => self.draft_caps = caps,
             Input::Clipboard(text) => self.clipboard = (!text.is_empty()).then_some(text),
@@ -651,7 +651,7 @@ impl Controller {
             Event::Action(Action::ShowMore) => self.more(out),
             Event::Action(Action::NextAlternative) => self.cycle(1, out),
             Event::Action(Action::PrevAlternative) => self.cycle(-1, out),
-            Event::Action(Action::FlowDraft) => self.open_card(out),
+            Event::Action(Action::Reply) => self.open_card(out),
             Event::Action(Action::TakeWord | Action::TakeAll | Action::Dismiss) => {}
             Event::CardKey(key) => self.card_key(key, out),
             Event::InsertDone { id, outcome } => self.insert_done(id, outcome, out),
@@ -747,7 +747,7 @@ impl Controller {
 
     /// True when the focused field may use reply & rewrite at all.
     fn draft_allowed(&self) -> bool {
-        self.settings.flow_draft.enabled
+        self.settings.reply.enabled
             && self.active()
             && self
                 .field
@@ -829,7 +829,7 @@ impl Controller {
 
     /// Starts or stops the draft-offer timer for the field's current state.
     fn arm_offer(&mut self, out: &mut Vec<Output>) {
-        let want = self.settings.flow_draft.auto_offer
+        let want = self.settings.reply.auto_offer
             && self.draft_allowed()
             && self.card.is_none()
             && self.field.as_ref().is_some_and(|f| {
@@ -1035,7 +1035,7 @@ impl Controller {
                     .field
                     .as_ref()
                     .is_some_and(|f| field_text(&f.snap).trim().is_empty());
-                if self.settings.flow_draft.auto_offer && empty && self.card.is_none() {
+                if self.settings.reply.auto_offer && empty && self.card.is_none() {
                     self.open_card(out);
                 }
             }
@@ -1361,7 +1361,7 @@ impl Controller {
             card.items = REWRITE_ACTIONS.iter().map(|s| (*s).to_owned()).collect();
             card.items.extend(
                 self.settings
-                    .flow_draft
+                    .reply
                     .custom_actions
                     .iter()
                     .map(|a| a.name.clone()),
@@ -1551,7 +1551,7 @@ impl Controller {
             }
             None => match self
                 .settings
-                .flow_draft
+                .reply
                 .custom_actions
                 .get(i - REWRITE_ACTIONS.len())
             {

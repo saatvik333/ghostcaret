@@ -11,7 +11,7 @@
 //! None of this allocates or blocks: taken text is copied into a buffer
 //! reserved up front, and events are built only when drained.
 
-use oft_engine::io::{
+use ghostcaret_engine::io::{
     Action, Bindings, CardKey, Chord, DismissReason, Event, FieldId, Key, Modifier, Mods, Overlay,
     Trigger,
 };
@@ -88,7 +88,7 @@ pub enum Verdict {
     /// The app does not get the key; [`Gate::accepted`] is inserted before
     /// any later key reaches the app.
     Insert,
-    /// The app gets this modifier release, which completed a Flow Draft tap
+    /// The app gets this modifier release, which completed a Reply & rewrite tap
     /// ([`TapStyle::Pass`]).
     Tap,
 }
@@ -358,7 +358,7 @@ impl Gate {
         if let Some(tap) = self.tap.take_if(|t| t.code == k.code) {
             let tapped = k.time_ms.wrapping_sub(tap.since) <= TAP_MAX_MS;
             if tapped {
-                self.reports.push(Report::Action(Action::FlowDraft));
+                self.reports.push(Report::Action(Action::Reply));
             }
             return match self.taps {
                 TapStyle::Defer => {
@@ -397,7 +397,7 @@ impl Gate {
             others.remove(k.code);
             !others.is_empty()
         };
-        if self.bindings.flow_draft == Some(Trigger::ModifierTap(m)) && !others_held {
+        if self.bindings.reply == Some(Trigger::ModifierTap(m)) && !others_held {
             self.tap = Some(ArmedTap {
                 code: k.code,
                 since: k.time_ms,
@@ -434,7 +434,7 @@ impl Gate {
     /// Whether a bound chord the gate would consume now uses `m`.
     fn in_live_chord(&self, m: Modifier) -> bool {
         let b = &self.bindings;
-        let draft = match b.flow_draft {
+        let draft = match b.reply {
             Some(Trigger::Chord(c)) => Some(c),
             _ => None,
         };
@@ -454,12 +454,12 @@ impl Gate {
     }
 
     fn press(&mut self, k: &KeyIn, repeat: bool) -> Verdict {
-        let draft_chord = match self.bindings.flow_draft {
+        let draft_chord = match self.bindings.reply {
             Some(Trigger::Chord(c)) => Some(c),
             _ => None,
         };
         if !repeat && bound(draft_chord, k) {
-            self.reports.push(Report::Action(Action::FlowDraft));
+            self.reports.push(Report::Action(Action::Reply));
             return Verdict::Consume;
         }
         match &self.overlay {
@@ -622,7 +622,7 @@ fn card_key(k: &KeyIn, typing: bool) -> Option<CardKey> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oft_engine::io::{CardView, SuggestionView};
+    use ghostcaret_engine::io::{CardView, SuggestionView};
     use proptest::prelude::*;
     use std::alloc::{GlobalAlloc, Layout, System};
     use std::cell::Cell;
@@ -1098,7 +1098,7 @@ mod tests {
             g.key(&modifier(RALT, Modifier::RightAlt, false, 1100)),
             Verdict::Consume
         );
-        assert_eq!(events(&mut g), [Event::Action(Action::FlowDraft)]);
+        assert_eq!(events(&mut g), [Event::Action(Action::Reply)]);
         assert!(shown(&g).is_some(), "a tap is not a dismissal");
     }
 
@@ -1209,7 +1209,7 @@ mod tests {
             g.key(&modifier(RALT, Modifier::RightAlt, false, 90)),
             Verdict::Tap
         );
-        assert_eq!(events(&mut g), [Event::Action(Action::FlowDraft)]);
+        assert_eq!(events(&mut g), [Event::Action(Action::Reply)]);
 
         // Pressed with another key held, it is a modifier, not a tap.
         g.key(&modifier(42, Modifier::LeftShift, true, 100));
@@ -1245,19 +1245,19 @@ mod tests {
     }
 
     #[test]
-    fn a_flow_draft_chord_works_with_nothing_shown() {
+    fn a_reply_chord_works_with_nothing_shown() {
         let mut g = Gate::new(TapStyle::Pass);
         let chord = Chord {
             key: Key::Char('d'),
             mods: CTRL,
         };
         g.set_bindings(Bindings {
-            flow_draft: Some(Trigger::Chord(chord)),
+            reply: Some(Trigger::Chord(chord)),
             ..Bindings::default()
         });
         assert_eq!(g.key(&ch('d', CTRL, true)), Verdict::Consume);
         assert_eq!(g.key(&ch('d', CTRL, false)), Verdict::Consume);
-        assert_eq!(events(&mut g), [Event::Action(Action::FlowDraft)]);
+        assert_eq!(events(&mut g), [Event::Action(Action::Reply)]);
     }
 
     #[test]

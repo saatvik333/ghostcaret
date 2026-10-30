@@ -1,9 +1,9 @@
 //! The runtime that drives the engine's controller for the desktop app.
 //!
-//! One thread owns the [`Controller`](oft_engine::controller::Controller).
+//! One thread owns the [`Controller`](ghostcaret_engine::controller::Controller).
 //! It feeds it backend events, model results, host commands and timer
 //! expiries in arrival order, and executes every
-//! [`Output`](oft_engine::controller::Output) against the [`Backend`]. It
+//! [`Output`](ghostcaret_engine::controller::Output) against the [`Backend`]. It
 //! sleeps in `Select::ready_deadline` until one of those arrives or the
 //! earliest timer is due; with no timer armed it blocks indefinitely, so an
 //! idle runtime takes no CPU.
@@ -14,7 +14,7 @@
 //! conversations; helper threads build cloud providers, warm their
 //! connections, and load and unload the local model.
 //!
-//! The runtime also enforces the daily cloud cap (counted in `oft-store`'s
+//! The runtime also enforces the daily cloud cap (counted in `ghostcaret-store`'s
 //! stats, so it survives restarts), moves autocomplete to an installed local
 //! model when the cloud fails or the cap is reached and back five minutes
 //! later, unloads the local model after idleness and on memory pressure,
@@ -52,11 +52,11 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
 use crossbeam_channel::{Sender, unbounded};
-use oft_cloud::SentLog;
-use oft_engine::io::{Backend, Event};
-use oft_engine::settings::Settings;
-use oft_store::stats::Stats;
-use oft_store::style::StyleMemory;
+use ghostcaret_cloud::SentLog;
+use ghostcaret_engine::io::{Backend, Event};
+use ghostcaret_engine::settings::Settings;
+use ghostcaret_store::stats::Stats;
+use ghostcaret_store::style::StyleMemory;
 
 use crate::core::{Core, Shared};
 use crate::models::{Hub, Loader, Models};
@@ -96,11 +96,11 @@ pub struct Config {
     pub style: Option<StyleMemory>,
     /// Every cloud request body, for the host's "What was sent" view.
     pub sent_log: SentLog,
-    /// Where downloaded models are (`oft_local::store::ModelStore`).
+    /// Where downloaded models are (`ghostcaret_local::store::ModelStore`).
     #[cfg(feature = "local")]
     pub models_dir: PathBuf,
     #[cfg(feature = "local")]
-    pub load_options: oft_local::LoadOptions,
+    pub load_options: ghostcaret_local::LoadOptions,
 }
 
 /// What the host tells the runtime.
@@ -213,7 +213,7 @@ where
     let thread = {
         let (shared, events) = (shared.clone(), events.clone());
         thread::Builder::new()
-            .name("oft-runtime".into())
+            .name("ghostcaret-runtime".into())
             .spawn(move || {
                 let backend = backend(events);
                 Core::new(host, backend, stats, style, hub, workers, shared).run(

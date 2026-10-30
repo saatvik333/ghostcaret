@@ -4,7 +4,7 @@
 //!
 //! Pure; the table is filled by the hook thread through `ToUnicodeEx`.
 
-use oft_engine::io::{Key, Modifier, Mods};
+use ghostcaret_engine::io::{Key, Modifier, Mods};
 
 use crate::gate::{KeyIn, Typed};
 

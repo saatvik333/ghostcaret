@@ -3,10 +3,10 @@
 
 use std::path::PathBuf;
 
-use oft_engine::complete::{CompletionRequest, LengthMode, Segments, StopCheck, StopParams};
-use oft_engine::io::{AppInfo, FieldId};
-use oft_local::store::ModelStore;
-use oft_local::{FlashAttention, KvCacheType, LoadOptions};
+use ghostcaret_engine::complete::{CompletionRequest, LengthMode, Segments, StopCheck, StopParams};
+use ghostcaret_engine::io::{AppInfo, FieldId};
+use ghostcaret_local::store::ModelStore;
+use ghostcaret_local::{FlashAttention, KvCacheType, LoadOptions};
 
 pub const LOAD_USAGE: &str =
     "[--threads N] [--gpu-layers N] [--ctx N] [--kv f16|q8_0|q4_0] [--fa auto|on|off] [--no-mmap]";

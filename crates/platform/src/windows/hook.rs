@@ -11,7 +11,7 @@ use std::cell::RefCell;
 use std::time::Instant;
 
 use crossbeam_channel::Sender;
-use oft_engine::io::{BackendStatus, Event, FieldId, Key, Overlay};
+use ghostcaret_engine::io::{BackendStatus, Event, FieldId, Key, Overlay};
 use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, INPUT, VK_CAPITAL};
@@ -29,7 +29,7 @@ use crate::latency::{Histogram, Summary};
 
 pub enum Command {
     Overlay(Overlay),
-    Bindings(oft_engine::io::Bindings),
+    Bindings(ghostcaret_engine::io::Bindings),
     Active(bool),
     /// The focused field; sent by the UI Automation thread before it reports
     /// the focus, so overlays for the new field are accepted.

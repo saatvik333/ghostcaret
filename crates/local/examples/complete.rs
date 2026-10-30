@@ -1,7 +1,7 @@
 //! One completion from the command line, with timings:
 //!
 //! ```text
-//! cargo run --release -p oft-local --example complete -- --model qwen3.5-2b-base-q4_k_m "I would like to sch"
+//! cargo run --release -p ghostcaret-local --example complete -- --model qwen3.5-2b-base-q4_k_m "I would like to sch"
 //! ```
 //!
 //! `--model` takes a manifest id (looked up in the model store) or a GGUF
@@ -14,9 +14,11 @@ mod common;
 use std::process::ExitCode;
 use std::time::Instant;
 
-use oft_engine::complete::{CancelToken, ChatMessage, Completer, GenerateRequest, Generator, Role};
-use oft_local::store::{Manifest, ModelStore};
-use oft_local::{LoadOptions, LocalModel};
+use ghostcaret_engine::complete::{
+    CancelToken, ChatMessage, Completer, GenerateRequest, Generator, Role,
+};
+use ghostcaret_local::store::{Manifest, ModelStore};
+use ghostcaret_local::{LoadOptions, LocalModel};
 
 use common::{NoStop, request};
 

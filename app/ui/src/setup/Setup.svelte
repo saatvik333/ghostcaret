@@ -92,7 +92,7 @@
     all: s.keys.take_all ? chordName(s.keys.take_all) : null,
     more: s.keys.show_more ? chordName(s.keys.show_more) : null,
     dismiss: s.keys.dismiss ? chordName(s.keys.dismiss) : null,
-    draft: s.keys.flow_draft ? triggerName(s.keys.flow_draft) : null,
+    draft: s.keys.reply ? triggerName(s.keys.reply) : null,
   });
 </script>
 

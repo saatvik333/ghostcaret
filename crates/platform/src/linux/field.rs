@@ -1,7 +1,7 @@
 //! The focused field as the input-method protocol describes it, and its
 //! conversion to [`FieldSnapshot`] parts.
 
-use oft_engine::io::{FieldKind, MAX_AFTER, MAX_BEFORE};
+use ghostcaret_engine::io::{FieldKind, MAX_AFTER, MAX_BEFORE};
 
 /// Clients may send at most this many bytes of surrounding text; text this
 /// long is almost certainly a window onto a longer field.

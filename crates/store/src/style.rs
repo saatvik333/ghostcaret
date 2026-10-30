@@ -67,7 +67,7 @@ impl StyleMemory {
         conn.execute_batch(SCHEMA)?;
         let (tx, rx) = unbounded();
         thread::Builder::new()
-            .name("oft-style".into())
+            .name("ghostcaret-style".into())
             .spawn(move || worker(conn, rx))
             .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
         Ok(StyleMemory { tx, path })

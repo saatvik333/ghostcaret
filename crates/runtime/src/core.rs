@@ -7,12 +7,14 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crossbeam_channel::{Receiver, Select, Sender, TryRecvError};
-use oft_engine::complete::{CancelToken, Caps, CompleteError};
-use oft_engine::controller::{Controller, Feature, GenerateUpdate, Input, Output, Status, TimerId};
-use oft_engine::io::{AppInfo, Backend, BackendStatus, Event, FieldId, FieldKind, Overlay};
-use oft_engine::settings::Settings;
-use oft_store::stats::Stats;
-use oft_store::style::StyleMemory;
+use ghostcaret_engine::complete::{CancelToken, Caps, CompleteError};
+use ghostcaret_engine::controller::{
+    Controller, Feature, GenerateUpdate, Input, Output, Status, TimerId,
+};
+use ghostcaret_engine::io::{AppInfo, Backend, BackendStatus, Event, FieldId, FieldKind, Overlay};
+use ghostcaret_engine::settings::Settings;
+use ghostcaret_store::stats::Stats;
+use ghostcaret_store::style::StyleMemory;
 
 use crate::models::{Hub, HubEvent, LocalState};
 use crate::pause::{PauseInfo, Pauses, local_clock, local_day, now_ms};
@@ -595,8 +597,8 @@ impl Core {
             Output::Generate(request) => {
                 let id = request.id;
                 match self
-                    .cloud_gate(Feature::FlowDraft)
-                    .and_then(|()| self.hub.generator(Feature::FlowDraft))
+                    .cloud_gate(Feature::Reply)
+                    .and_then(|()| self.hub.generator(Feature::Reply))
                 {
                     Ok(model) => {
                         let cancel = CancelToken::new();
@@ -615,9 +617,9 @@ impl Core {
                             });
                             return;
                         }
-                        let local = self.hub.is_local(Feature::FlowDraft);
+                        let local = self.hub.is_local(Feature::Reply);
                         self.generations.insert(id, Running { cancel, local });
-                        self.touch_local(Feature::FlowDraft);
+                        self.touch_local(Feature::Reply);
                     }
                     Err(e) => self.queued.push_back(Input::Generated {
                         id,
@@ -744,7 +746,7 @@ impl Core {
     }
 
     fn send_caps(&mut self) {
-        for (i, feature) in [Feature::Autocomplete, Feature::FlowDraft]
+        for (i, feature) in [Feature::Autocomplete, Feature::Reply]
             .into_iter()
             .enumerate()
         {
@@ -941,7 +943,7 @@ impl Core {
         };
         let uses_cloud = self.hub.took_over()
             || self.hub.is_cloud(Feature::Autocomplete)
-            || self.hub.is_cloud(Feature::FlowDraft);
+            || self.hub.is_cloud(Feature::Reply);
         if uses_cloud && self.cap_reached() {
             return with_detail(
                 StatusKind::CloudUnavailable,

@@ -12,7 +12,7 @@ use std::io::{self, Read};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use oft_engine::complete::CancelToken;
+use ghostcaret_engine::complete::CancelToken;
 use serde_json::Value;
 use ureq::Agent;
 use ureq::config::Config;
@@ -72,7 +72,7 @@ impl Http {
             .timeout_connect(Some(settings.connect_timeout))
             .max_idle_connections_per_host(2)
             .max_idle_age(Duration::from_secs(50))
-            .user_agent(concat!("open-flowtype/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("ghostcaret/", env!("CARGO_PKG_VERSION")))
             .build();
         let agent = Agent::with_parts(
             config,

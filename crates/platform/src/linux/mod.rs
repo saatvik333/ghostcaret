@@ -12,7 +12,7 @@
 //!   key; keys it does not consume are forwarded unchanged through a virtual
 //!   keyboard that uses the grab's own keymap.
 //! - Display: an input-method popup surface, which the compositor places at
-//!   the text field's caret, drawn by `oft-render` on its own thread.
+//!   the text field's caret, drawn by `ghostcaret-render` on its own thread.
 //! - Insert: `delete_surrounding_text` + `commit_string` + `commit`,
 //!   confirmed by the surrounding text that follows, see [`commits`].
 //!   Every state update from the app is answered with a `commit`, which
@@ -39,11 +39,11 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use crossbeam_channel::{Receiver, Sender};
-use oft_engine::io::{
+use ghostcaret_engine::io::{
     AppInfo, Backend, BackendStatus, Bindings, Conversation, Event, FieldId, InsertRequest, Overlay,
 };
-use oft_engine::settings::{Appearance, GhostStyle};
-use oft_render::{Image, Renderer, Theme};
+use ghostcaret_engine::settings::{Appearance, GhostStyle};
+use ghostcaret_render::{Image, Renderer, Theme};
 
 use crate::{StartError, latency};
 
@@ -209,7 +209,7 @@ impl LinuxBackend {
         let (render, render_rx) = crossbeam_channel::unbounded();
 
         let mut threads = Vec::new();
-        threads.push(spawn("oft-render", {
+        threads.push(spawn("ghostcaret-render", {
             let (commands, waker) = (commands.clone(), waker.clone());
             move || render_loop(render_rx, commands, waker)
         })?);
@@ -218,7 +218,7 @@ impl LinuxBackend {
         let (ready_tx, ready_rx) = crossbeam_channel::bounded(1);
         threads.insert(
             0,
-            spawn("oft-wayland", {
+            spawn("ghostcaret-wayland", {
                 let (shared, waker, render) = (shared.clone(), waker.clone(), render.clone());
                 move || match wayland::open().and_then(|conn| {
                     wayland::Session::connect(conn, events.clone(), shared.clone(), render.clone())
@@ -243,7 +243,7 @@ impl LinuxBackend {
             }
             return Err(e);
         }
-        let watchdog = spawn("oft-watchdog", {
+        let watchdog = spawn("ghostcaret-watchdog", {
             let shared = shared.clone();
             move || watchdog(shared)
         })?;
@@ -389,7 +389,7 @@ fn watchdog(shared: Arc<Shared>) {
 /// portal, without polling.
 fn spawn_theme_watch(render: Sender<RenderJob>) {
     let _ = thread::Builder::new()
-        .name("oft-theme".into())
+        .name("ghostcaret-theme".into())
         .spawn(move || {
             let Ok(watch) = portal::ColorScheme::connect() else {
                 return;

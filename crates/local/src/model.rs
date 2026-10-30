@@ -14,7 +14,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, MutexGuard};
 use std::time::Instant;
 
-use oft_engine::complete::{
+use ghostcaret_engine::complete::{
     CancelToken, Candidate, Caps, ChatMessage, CompleteError, Completer, Completion,
     CompletionRequest, GenerateRequest, Generator, Role, StopCheck,
 };

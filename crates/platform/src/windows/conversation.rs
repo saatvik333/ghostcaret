@@ -1,7 +1,7 @@
 //! The visible conversation above the focused field, rebuilt from the text
 //! elements UI Automation finds on screen.
 
-use oft_engine::io::{Author, Conversation, Message};
+use ghostcaret_engine::io::{Author, Conversation, Message};
 
 use super::place::Px;
 

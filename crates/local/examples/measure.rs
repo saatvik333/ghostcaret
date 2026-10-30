@@ -2,7 +2,7 @@
 //! tab-separated row (with a header row unless `--no-header`):
 //!
 //! ```text
-//! cargo run --release -p oft-local --example measure -- --model qwen3.5-2b-base-q4_k_m --backend cpu --trials 200
+//! cargo run --release -p ghostcaret-local --example measure -- --model qwen3.5-2b-base-q4_k_m --backend cpu --trials 200
 //! ```
 //!
 //! The context is ~1,500 tokens of Pride and Prejudice, chapters I–III
@@ -21,8 +21,8 @@ mod common;
 use std::process::ExitCode;
 use std::time::{Duration, Instant};
 
-use oft_engine::complete::{CancelToken, Completer};
-use oft_local::{LoadOptions, LocalModel, supports_gpu_offload};
+use ghostcaret_engine::complete::{CancelToken, Completer};
+use ghostcaret_local::{LoadOptions, LocalModel, supports_gpu_offload};
 
 use common::{NoStop, request};
 

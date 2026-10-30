@@ -1,4 +1,4 @@
-//! Contract between the engine and the OS backends (`oft-platform`).
+//! Contract between the engine and the OS backends (`ghostcaret-platform`).
 //!
 //! A backend reports what the user is typing ([`Event`]) and executes what the
 //! controller decides ([`Backend`]). The backend owns the keystroke path: it
@@ -56,7 +56,7 @@ pub enum FieldKind {
 }
 
 impl FieldKind {
-    /// Fields where open-flowtype never reads, predicts or shows anything.
+    /// Fields where ghostcaret never reads, predicts or shows anything.
     pub fn is_secure_or_structured(self) -> bool {
         matches!(
             self,
@@ -233,7 +233,7 @@ impl SuggestionView {
     }
 }
 
-/// The Flow Draft card. While a card is shown the backend sends every key to
+/// The Reply & rewrite card. While a card is shown the backend sends every key to
 /// the controller as [`CardKey`] and none to the app.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct CardView {
@@ -262,7 +262,7 @@ pub enum Action {
     NextAlternative,
     PrevAlternative,
     Dismiss,
-    FlowDraft,
+    Reply,
 }
 
 /// Keys that can be bound. `Char` is the character the key produces in the
@@ -321,7 +321,7 @@ pub enum Modifier {
     RightMeta,
 }
 
-/// The Flow Draft trigger: a chord, or a modifier pressed and released on its
+/// The Reply & rewrite trigger: a chord, or a modifier pressed and released on its
 /// own. A modifier held while another key is pressed keeps its normal meaning.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -340,7 +340,7 @@ pub struct Bindings {
     pub next_alternative: Option<Chord>,
     pub prev_alternative: Option<Chord>,
     pub dismiss: Option<Chord>,
-    pub flow_draft: Option<Trigger>,
+    pub reply: Option<Trigger>,
 }
 
 impl Default for Bindings {
@@ -367,7 +367,7 @@ impl Default for Bindings {
             next_alternative: alt(Key::Down),
             prev_alternative: alt(Key::Up),
             dismiss: plain(Key::Escape),
-            flow_draft: Some(Trigger::ModifierTap(Modifier::RightAlt)),
+            reply: Some(Trigger::ModifierTap(Modifier::RightAlt)),
         }
     }
 }
@@ -463,7 +463,7 @@ pub enum Event {
         reason: DismissReason,
     },
     /// A bound action the controller must handle (Show More past the buffer,
-    /// alternatives, Flow Draft).
+    /// alternatives, Reply & rewrite).
     Action(Action),
     CardKey(CardKey),
     InsertDone {
@@ -508,7 +508,7 @@ pub trait Backend: Send + Sync {
     fn set_active(&self, active: bool);
     /// Inserts text; the outcome arrives as [`Event::InsertDone`].
     fn insert(&self, request: InsertRequest);
-    /// Reads the visible conversation for Flow Draft. May block for a while;
+    /// Reads the visible conversation for Reply & rewrite. May block for a while;
     /// the caller runs it off the key path. `None` when unavailable.
     fn conversation(&self, field: FieldId) -> Option<Conversation>;
 }

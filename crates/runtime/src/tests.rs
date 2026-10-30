@@ -7,17 +7,19 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use crossbeam_channel::{Receiver, Sender, unbounded};
-use oft_cloud::SentLog;
-use oft_engine::complete::{
+use ghostcaret_cloud::SentLog;
+use ghostcaret_engine::complete::{
     CancelToken, Candidate, Caps, CompleteError, Completer, Completion, CompletionRequest,
     GenerateRequest, Generator, StopCheck,
 };
-use oft_engine::io::{
+use ghostcaret_engine::io::{
     Action, AppInfo, Author, Backend, Bindings, CardKey, CardView, Conversation, Event, FieldId,
     FieldKind, FieldSnapshot, InsertOutcome, InsertRequest, Message, Overlay, Replace,
     SuggestionView,
 };
-use oft_engine::settings::{Appearance, ModelChoice, ProviderConfig, ProviderKind, Settings};
+use ghostcaret_engine::settings::{
+    Appearance, ModelChoice, ProviderConfig, ProviderKind, Settings,
+};
 
 use crate::models::{CloudModel, Loader, LocalModel};
 use crate::{Command, Config, Host, Runtime, StatusKind, StatusView, start_with};
@@ -279,7 +281,7 @@ impl Harness {
             #[cfg(feature = "local")]
             models_dir: PathBuf::new(),
             #[cfg(feature = "local")]
-            load_options: oft_local::LoadOptions::default(),
+            load_options: ghostcaret_local::LoadOptions::default(),
         };
         let runtime =
             start_with(host, config, move |_| Ok(backend), loader).expect("the runtime starts");
@@ -588,7 +590,7 @@ fn reply_flow_streams_the_draft_and_inserts_it() {
     });
     h.wait_status("active", active);
     h.event(Event::Focus(snap(1, CHAT, "")));
-    h.event(Event::Action(Action::FlowDraft));
+    h.event(Event::Action(Action::Reply));
     h.wait_card("directions", |card| card.items.len() == 3);
     h.event(Event::CardKey(CardKey::Pick(1)));
     h.wait_card("finished draft", |card| {

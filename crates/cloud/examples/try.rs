@@ -1,46 +1,48 @@
-//! Runs one autocomplete and one Flow Draft request against a real endpoint.
+//! Runs one autocomplete and one Reply & rewrite request against a real endpoint.
 //!
 //! ```text
-//! OFT_PROVIDER=openai OFT_BASE_URL=http://localhost:8080/v1 OFT_MODEL=qwen cargo run -p oft-cloud --example try
-//! OFT_PROVIDER=anthropic OFT_MODEL=claude-haiku-4-5 OFT_API_KEY=... cargo run -p oft-cloud --example try
-//! OFT_PROVIDER=gemini OFT_MODEL=gemini-2.5-flash OFT_API_KEY=... cargo run -p oft-cloud --example try
+//! GHOSTCARET_PROVIDER=openai GHOSTCARET_BASE_URL=http://localhost:8080/v1 GHOSTCARET_MODEL=qwen cargo run -p ghostcaret-cloud --example try
+//! GHOSTCARET_PROVIDER=anthropic GHOSTCARET_MODEL=claude-haiku-4-5 GHOSTCARET_API_KEY=... cargo run -p ghostcaret-cloud --example try
+//! GHOSTCARET_PROVIDER=gemini GHOSTCARET_MODEL=gemini-2.5-flash GHOSTCARET_API_KEY=... cargo run -p ghostcaret-cloud --example try
 //! ```
 //!
-//! `OFT_PROVIDER` is `openai` (any OpenAI-compatible server; needs
-//! `OFT_BASE_URL`), `anthropic` or `gemini`. `OFT_API_KEY` is optional for
-//! local servers. `OFT_BEFORE` replaces the sample text before the caret.
+//! `GHOSTCARET_PROVIDER` is `openai` (any OpenAI-compatible server; needs
+//! `GHOSTCARET_BASE_URL`), `anthropic` or `gemini`. `GHOSTCARET_API_KEY` is optional for
+//! local servers. `GHOSTCARET_BEFORE` replaces the sample text before the caret.
 
 use std::process::ExitCode;
 use std::time::Instant;
 
-use oft_cloud::{SentLog, provider};
-use oft_engine::complete::{
+use ghostcaret_cloud::{SentLog, provider};
+use ghostcaret_engine::complete::{
     CancelToken, ChatMessage, Completer, CompletionRequest, GenerateRequest, Generator, LengthMode,
     Role, Segments, StopCheck, StopParams,
 };
-use oft_engine::io::{AppInfo, Author, FieldId, Message};
-use oft_engine::settings::{ProviderConfig, ProviderKind};
+use ghostcaret_engine::io::{AppInfo, Author, FieldId, Message};
+use ghostcaret_engine::settings::{ProviderConfig, ProviderKind};
 
 fn main() -> ExitCode {
     let env = |k: &str| std::env::var(k).ok().filter(|v| !v.is_empty());
-    let (Some(kind), Some(model)) = (env("OFT_PROVIDER"), env("OFT_MODEL")) else {
+    let (Some(kind), Some(model)) = (env("GHOSTCARET_PROVIDER"), env("GHOSTCARET_MODEL")) else {
         eprintln!(
-            "set OFT_PROVIDER (openai|anthropic|gemini) and OFT_MODEL; see the header of this example"
+            "set GHOSTCARET_PROVIDER (openai|anthropic|gemini) and GHOSTCARET_MODEL; see the header of this example"
         );
         return ExitCode::from(2);
     };
     let kind = match kind.as_str() {
-        "openai" => match env("OFT_BASE_URL") {
+        "openai" => match env("GHOSTCARET_BASE_URL") {
             Some(base_url) => ProviderKind::OpenAiCompatible { base_url },
             None => {
-                eprintln!("OFT_PROVIDER=openai needs OFT_BASE_URL, e.g. https://api.openai.com/v1");
+                eprintln!(
+                    "GHOSTCARET_PROVIDER=openai needs GHOSTCARET_BASE_URL, e.g. https://api.openai.com/v1"
+                );
                 return ExitCode::from(2);
             }
         },
         "anthropic" => ProviderKind::Anthropic,
         "gemini" => ProviderKind::Gemini,
         other => {
-            eprintln!("unknown OFT_PROVIDER {other:?}");
+            eprintln!("unknown GHOSTCARET_PROVIDER {other:?}");
             return ExitCode::from(2);
         }
     };
@@ -51,7 +53,7 @@ fn main() -> ExitCode {
         model,
     };
     let log = SentLog::default();
-    let provider = match provider(&config, env("OFT_API_KEY"), log.clone()) {
+    let provider = match provider(&config, env("GHOSTCARET_API_KEY"), log.clone()) {
         Ok(p) => p,
         Err(e) => {
             eprintln!("cannot build the provider: {e}");
@@ -78,7 +80,7 @@ fn main() -> ExitCode {
     );
     provider.warm();
 
-    let before = env("OFT_BEFORE")
+    let before = env("GHOSTCARET_BEFORE")
         .unwrap_or_else(|| "Thanks for the update, I'll have a look at the".into());
     let request = CompletionRequest {
         id: 1,
@@ -156,7 +158,7 @@ fn main() -> ExitCode {
         temperature: 0.7,
     };
     let started = Instant::now();
-    println!("\nFlow Draft:");
+    println!("\nReply & rewrite:");
     match provider.generate(&draft, &cancel, &mut |delta| print!("{delta}")) {
         Ok(_) => println!("\n({:.0?})", started.elapsed()),
         Err(e) => {

@@ -1676,6 +1676,147 @@ dependencies = [
 ]
 
 [[package]]
+name = "ghostcaret"
+version = "0.1.0"
+dependencies = [
+ "directories",
+ "ghostcaret-cloud",
+ "ghostcaret-engine",
+ "ghostcaret-local",
+ "ghostcaret-platform",
+ "ghostcaret-runtime",
+ "ghostcaret-store",
+ "keyring",
+ "libc",
+ "log",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-single-instance",
+ "thiserror 2.0.21",
+ "toml 1.1.8+spec-1.1.0",
+ "windows-sys 0.60.2",
+]
+
+[[package]]
+name = "ghostcaret-bench"
+version = "0.1.0"
+dependencies = [
+ "ghostcaret-engine",
+ "ghostcaret-local",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "unicode-segmentation",
+ "ureq",
+]
+
+[[package]]
+name = "ghostcaret-cloud"
+version = "0.1.0"
+dependencies = [
+ "fastrand",
+ "ghostcaret-engine",
+ "log",
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "ureq",
+]
+
+[[package]]
+name = "ghostcaret-engine"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "log",
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "toml 1.1.8+spec-1.1.0",
+ "unicode-segmentation",
+]
+
+[[package]]
+name = "ghostcaret-local"
+version = "0.1.0"
+dependencies = [
+ "directories",
+ "ghostcaret-engine",
+ "llama-cpp-sys-2",
+ "log",
+ "proptest",
+ "sha2 0.11.1",
+ "thiserror 2.0.21",
+ "ureq",
+]
+
+[[package]]
+name = "ghostcaret-platform"
+version = "0.1.0"
+dependencies = [
+ "crossbeam-channel",
+ "ghostcaret-engine",
+ "ghostcaret-render",
+ "log",
+ "memmap2",
+ "proptest",
+ "rustix",
+ "serde",
+ "thiserror 2.0.21",
+ "unicode-segmentation",
+ "wayland-client",
+ "wayland-protocols",
+ "wayland-protocols-misc",
+ "wayland-protocols-wlr",
+ "wayland-server",
+ "windows",
+ "windows-core",
+ "xkbcommon",
+ "zbus",
+ "zvariant",
+]
+
+[[package]]
+name = "ghostcaret-render"
+version = "0.1.0"
+dependencies = [
+ "ghostcaret-engine",
+ "memmap2",
+ "proptest",
+ "swash",
+]
+
+[[package]]
+name = "ghostcaret-runtime"
+version = "0.1.0"
+dependencies = [
+ "crossbeam-channel",
+ "ghostcaret-cloud",
+ "ghostcaret-engine",
+ "ghostcaret-local",
+ "ghostcaret-store",
+ "libc",
+ "log",
+ "serde",
+ "windows-sys 0.60.2",
+]
+
+[[package]]
+name = "ghostcaret-store"
+version = "0.1.0"
+dependencies = [
+ "crossbeam-channel",
+ "ghostcaret-engine",
+ "log",
+ "rusqlite",
+ "serde",
+]
+
+[[package]]
 name = "gio"
 version = "0.18.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2988,123 +3129,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "oft-bench"
-version = "0.1.0"
-dependencies = [
- "oft-engine",
- "oft-local",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "unicode-segmentation",
- "ureq",
-]
-
-[[package]]
-name = "oft-cloud"
-version = "0.1.0"
-dependencies = [
- "fastrand",
- "log",
- "oft-engine",
- "proptest",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "ureq",
-]
-
-[[package]]
-name = "oft-engine"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "log",
- "proptest",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "toml 1.1.8+spec-1.1.0",
- "unicode-segmentation",
-]
-
-[[package]]
-name = "oft-local"
-version = "0.1.0"
-dependencies = [
- "directories",
- "llama-cpp-sys-2",
- "log",
- "oft-engine",
- "proptest",
- "sha2 0.11.1",
- "thiserror 2.0.21",
- "ureq",
-]
-
-[[package]]
-name = "oft-platform"
-version = "0.1.0"
-dependencies = [
- "crossbeam-channel",
- "log",
- "memmap2",
- "oft-engine",
- "oft-render",
- "proptest",
- "rustix",
- "serde",
- "thiserror 2.0.21",
- "unicode-segmentation",
- "wayland-client",
- "wayland-protocols",
- "wayland-protocols-misc",
- "wayland-protocols-wlr",
- "wayland-server",
- "windows",
- "windows-core",
- "xkbcommon",
- "zbus",
- "zvariant",
-]
-
-[[package]]
-name = "oft-render"
-version = "0.1.0"
-dependencies = [
- "memmap2",
- "oft-engine",
- "proptest",
- "swash",
-]
-
-[[package]]
-name = "oft-runtime"
-version = "0.1.0"
-dependencies = [
- "crossbeam-channel",
- "libc",
- "log",
- "oft-cloud",
- "oft-engine",
- "oft-local",
- "oft-store",
- "serde",
- "windows-sys 0.60.2",
-]
-
-[[package]]
-name = "oft-store"
-version = "0.1.0"
-dependencies = [
- "crossbeam-channel",
- "log",
- "oft-engine",
- "rusqlite",
- "serde",
-]
-
-[[package]]
 name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3115,30 +3139,6 @@ name = "oorandom"
 version = "11.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6790f58c7ff633d8771f42965289203411a5e5c68388703c06e14f24770b41e"
-
-[[package]]
-name = "open-flowtype"
-version = "0.1.0"
-dependencies = [
- "directories",
- "keyring",
- "libc",
- "log",
- "oft-cloud",
- "oft-engine",
- "oft-local",
- "oft-platform",
- "oft-runtime",
- "oft-store",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-single-instance",
- "thiserror 2.0.21",
- "toml 1.1.8+spec-1.1.0",
- "windows-sys 0.60.2",
-]
 
 [[package]]
 name = "option-ext"

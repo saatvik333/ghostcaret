@@ -1,8 +1,8 @@
 mod common;
 
 use common::*;
-use oft_cloud::SentLog;
-use oft_engine::complete::{
+use ghostcaret_cloud::SentLog;
+use ghostcaret_engine::complete::{
     ChatMessage, CompleteError, Completer, GenerateRequest, Generator, Role,
 };
 use serde_json::json;
@@ -538,7 +538,7 @@ fn test_connection_succeeds_with_one_minimal_request() {
 
 #[test]
 fn a_key_is_refused_over_plain_http_to_public_hosts() {
-    use oft_engine::settings::{ProviderConfig, ProviderKind};
+    use ghostcaret_engine::settings::{ProviderConfig, ProviderKind};
     let config = ProviderConfig {
         id: "p".into(),
         label: "x".into(),
@@ -547,7 +547,8 @@ fn a_key_is_refused_over_plain_http_to_public_hosts() {
         },
         model: "m".into(),
     };
-    let err = oft_cloud::provider(&config, Some(KEY.into()), SentLog::default()).unwrap_err();
+    let err =
+        ghostcaret_cloud::provider(&config, Some(KEY.into()), SentLog::default()).unwrap_err();
     assert!(err.to_string().contains("plain http"), "{err}");
-    assert!(oft_cloud::provider(&config, None, SentLog::default()).is_ok());
+    assert!(ghostcaret_cloud::provider(&config, None, SentLog::default()).is_ok());
 }
