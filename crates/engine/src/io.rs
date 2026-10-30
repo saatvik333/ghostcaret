@@ -13,6 +13,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::settings::Appearance;
+
 /// Most bytes of text before the caret a backend reports.
 pub const MAX_BEFORE: usize = 8 * 1024;
 /// Most bytes of text after the caret a backend reports.
@@ -58,7 +60,11 @@ impl FieldKind {
     pub fn is_secure_or_structured(self) -> bool {
         matches!(
             self,
-            FieldKind::Password | FieldKind::Pin | FieldKind::Url | FieldKind::Number | FieldKind::Phone
+            FieldKind::Password
+                | FieldKind::Pin
+                | FieldKind::Url
+                | FieldKind::Number
+                | FieldKind::Phone
         )
     }
 }
@@ -133,8 +139,14 @@ impl SuggestionView {
             && t.is_char_boundary(self.shown)
             && ascending(&self.word_ends)
             && ascending(&self.step_ends)
-            && self.word_ends.iter().all(|&e| e > 0 && e <= t.len() && t.is_char_boundary(e))
-            && self.step_ends.iter().all(|&e| e > self.shown && e <= t.len() && t.is_char_boundary(e))
+            && self
+                .word_ends
+                .iter()
+                .all(|&e| e > 0 && e <= t.len() && t.is_char_boundary(e))
+            && self
+                .step_ends
+                .iter()
+                .all(|&e| e > self.shown && e <= t.len() && t.is_char_boundary(e))
     }
 
     /// The visible part of the suggestion.
@@ -206,7 +218,10 @@ impl SuggestionView {
     /// # Panics
     /// When `n > shown` or `n` is not a char boundary.
     pub fn advance(&mut self, n: usize) {
-        assert!(n <= self.shown && self.text.is_char_boundary(n), "advance past the visible text");
+        assert!(
+            n <= self.shown && self.text.is_char_boundary(n),
+            "advance past the visible text"
+        );
         self.text.drain(..n);
         self.shown -= n;
         let shift = |v: &mut Vec<usize>| {
@@ -330,8 +345,21 @@ pub struct Bindings {
 
 impl Default for Bindings {
     fn default() -> Self {
-        let plain = |key| Some(Chord { key, mods: Mods::default() });
-        let alt = |key| Some(Chord { key, mods: Mods { alt: true, ..Mods::default() } });
+        let plain = |key| {
+            Some(Chord {
+                key,
+                mods: Mods::default(),
+            })
+        };
+        let alt = |key| {
+            Some(Chord {
+                key,
+                mods: Mods {
+                    alt: true,
+                    ..Mods::default()
+                },
+            })
+        };
         Bindings {
             take_word: plain(Key::Tab),
             take_all: plain(Key::Char('`')),
@@ -402,7 +430,9 @@ pub enum BackendStatus {
     /// A required permission is missing; the text says which.
     PermissionMissing(String),
     /// Another app holds secure keyboard input.
-    SecureInput { app: Option<String> },
+    SecureInput {
+        app: Option<String>,
+    },
     /// The platform cannot provide the service; the text says why.
     Unavailable(String),
 }
@@ -417,16 +447,29 @@ pub enum Event {
     /// The focused field's text, caret or selection changed.
     Changed(FieldSnapshot),
     /// The key gate inserted suggestion text (Take Word or Take All).
-    Accepted { field: FieldId, text: String, whole: bool },
+    Accepted {
+        field: FieldId,
+        text: String,
+        whole: bool,
+    },
     /// The user typed characters the suggestion predicted; the gate advanced it.
-    TypedThrough { field: FieldId, text: String },
+    TypedThrough {
+        field: FieldId,
+        text: String,
+    },
     /// The gate hid the suggestion.
-    Dismissed { field: FieldId, reason: DismissReason },
+    Dismissed {
+        field: FieldId,
+        reason: DismissReason,
+    },
     /// A bound action the controller must handle (Show More past the buffer,
     /// alternatives, Flow Draft).
     Action(Action),
     CardKey(CardKey),
-    InsertDone { id: u64, outcome: InsertOutcome },
+    InsertDone {
+        id: u64,
+        outcome: InsertOutcome,
+    },
     Status(BackendStatus),
 }
 
@@ -456,6 +499,10 @@ pub trait Backend: Send + Sync {
     /// Replaces what the overlay shows and the state the key gate acts on.
     fn set_overlay(&self, overlay: Overlay);
     fn set_bindings(&self, bindings: Bindings);
+    /// Applies the user's appearance settings: the suggestion style (faint or
+    /// high contrast) and whether suggestions are announced through the
+    /// platform's accessibility API.
+    fn set_appearance(&self, appearance: Appearance);
     /// `false` pauses everything: keys pass straight through, the overlay is
     /// hidden, and where possible the backend stops intercepting input at all.
     fn set_active(&self, active: bool);

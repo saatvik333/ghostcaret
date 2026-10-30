@@ -8,7 +8,9 @@ use serde::{Deserialize, Serialize};
 use crate::io::{AppInfo, FieldId, FieldKind, Message};
 
 /// How much a suggestion may show. See docs/product.md, "Length and boldness".
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum LengthMode {
     Word,

@@ -88,7 +88,8 @@ pub enum SettingsError {
 
 impl Settings {
     pub fn from_toml(text: &str) -> Result<Settings, SettingsError> {
-        let settings: Settings = toml::from_str(text).map_err(|e| SettingsError::Parse(e.to_string()))?;
+        let settings: Settings =
+            toml::from_str(text).map_err(|e| SettingsError::Parse(e.to_string()))?;
         if settings.version > SETTINGS_VERSION {
             return Err(SettingsError::TooNew(settings.version));
         }
@@ -101,7 +102,12 @@ impl Settings {
     }
 
     pub fn validate(&self) -> Result<(), SettingsError> {
-        let invalid = |key, reason: &str| Err(SettingsError::Invalid { key, reason: reason.into() });
+        let invalid = |key, reason: &str| {
+            Err(SettingsError::Invalid {
+                key,
+                reason: reason.into(),
+            })
+        };
         if !(0.0..=1.0).contains(&self.boldness) {
             return invalid("boldness", "must be between 0 and 1");
         }
@@ -120,7 +126,10 @@ impl Settings {
                 return invalid("providers", "every provider needs a unique, non-empty id");
             }
         }
-        for (key, choice) in [("autocomplete_model", &self.autocomplete_model), ("draft_model", &self.draft_model)] {
+        for (key, choice) in [
+            ("autocomplete_model", &self.autocomplete_model),
+            ("draft_model", &self.draft_model),
+        ] {
             if let ModelChoice::Provider { provider } = choice
                 && !ids.contains(provider.as_str())
             {
@@ -168,7 +177,15 @@ impl Ceilings {
     }
 
     fn all(&self) -> impl Iterator<Item = LengthMode> {
-        [self.chat, self.email, self.document, self.search, self.terminal, self.other].into_iter()
+        [
+            self.chat,
+            self.email,
+            self.document,
+            self.search,
+            self.terminal,
+            self.other,
+        ]
+        .into_iter()
     }
 }
 
@@ -213,7 +230,9 @@ pub struct ProviderConfig {
 pub enum ProviderKind {
     /// OpenAI, OpenRouter, Groq, Together, Ollama, LM Studio, llama-server,
     /// vLLM and anything else that speaks the OpenAI API.
-    OpenAiCompatible { base_url: String },
+    OpenAiCompatible {
+        base_url: String,
+    },
     Anthropic,
     Gemini,
 }
@@ -255,7 +274,11 @@ pub struct FlowDraftSettings {
 
 impl Default for FlowDraftSettings {
     fn default() -> Self {
-        FlowDraftSettings { enabled: true, auto_offer: false, custom_actions: Vec::new() }
+        FlowDraftSettings {
+            enabled: true,
+            auto_offer: false,
+            custom_actions: Vec::new(),
+        }
     }
 }
 
@@ -294,7 +317,10 @@ pub struct Appearance {
 
 impl Default for Appearance {
     fn default() -> Self {
-        Appearance { style: GhostStyle::Faint, announce: false }
+        Appearance {
+            style: GhostStyle::Faint,
+            announce: false,
+        }
     }
 }
 
@@ -316,12 +342,20 @@ mod tests {
     #[test]
     fn rejects_out_of_range_boldness_naming_the_key() {
         let err = Settings::from_toml("boldness = 3.0").unwrap_err();
-        assert!(matches!(err, SettingsError::Invalid { key: "boldness", .. }));
+        assert!(matches!(
+            err,
+            SettingsError::Invalid {
+                key: "boldness",
+                ..
+            }
+        ));
     }
 
     #[test]
     fn rejects_unknown_provider_reference() {
-        let err = Settings::from_toml("[autocomplete_model]\nkind = \"provider\"\nprovider = \"nope\"").unwrap_err();
+        let err =
+            Settings::from_toml("[autocomplete_model]\nkind = \"provider\"\nprovider = \"nope\"")
+                .unwrap_err();
         assert!(matches!(err, SettingsError::Invalid { .. }));
     }
 }
