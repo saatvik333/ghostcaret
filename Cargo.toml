@@ -16,7 +16,7 @@ version = "0.1.0"
 edition = "2024"
 license = "MPL-2.0"
 rust-version = "1.90"
-repository = "https://github.com/saatvik333/open-flowtype"
+repository = "https://github.com/saatvik333/ghostcaret"
 
 [workspace.dependencies]
 oft-engine = { path = "crates/engine" }

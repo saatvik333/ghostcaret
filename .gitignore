@@ -8,3 +8,5 @@ node_modules/
 /app/gen/android/app/build/
 /app/gen/android/local.properties
 /app/gen/android/**/jniLibs/
+# Marketing plans, account notes and drafts stay local.
+/marketing/
