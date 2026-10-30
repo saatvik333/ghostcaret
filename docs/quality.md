@@ -170,8 +170,8 @@ Measured on 2026-10-30 on the development machine (Intel Core Ultra 7 155H, 30 G
 | Last keystroke to visible suggestion, local model | 100 ms p50, 250 ms p95 | Qwen3.5 0.8B on CPU in the full app: 236 ms p50, 323 ms p95 (n=18, load average 2.9) | Misses |
 | Same, on the GPU | 100 ms p50, 250 ms p95 | Qwen3.5 0.8B on the RTX A500: 169 ms p50, 228 ms p95 (load average 6 to 32) | Misses, measured under load |
 | Our own share of a suggestion (Linux) | 20 ms p95 | 0.78 ms p95 from keystroke to the popup request | Meets |
-| Idle | No wakeups | One D-Bus library thread wakes twice a second; every Ghostcaret thread stays asleep | Misses |
-| Memory without a model | 100 MB | 133 MB at start, 165 MB after the model unloads | Misses |
+| Idle | No wakeups | The Linux backend's own D-Bus connections no longer wake (a test guards this), but one D-Bus helper thread started elsewhere in the app still wakes twice a second | Misses |
+| Memory without a model | 100 MB | 133 to 137 MB at start, 165 MB after the model unloads; 77 MB of it is anonymous memory not yet attributed | Misses |
 | Installer size | 40 MB | Windows installer 7.7 MB (the model downloads separately) | Meets |
 
 The latency misses are mostly model time: the suggestion path outside the model takes under a millisecond. Which model and decoding settings close the gap is the benchmark's job (see [Benchmark](#benchmark)); the harness is in `crates/bench` and has not been run yet. Nothing ships until every row meets its target.
