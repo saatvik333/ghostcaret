@@ -9,7 +9,6 @@ publish = false
 
 [lib]
 name = "open_flowtype_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
 
 [features]
 default = ["local"]
@@ -18,6 +17,9 @@ local = ["dep:oft-local", "oft-runtime/local"]
 # GPU backends for llama.cpp.
 cuda = ["local", "oft-local?/cuda"]
 vulkan = ["local", "oft-local?/vulkan"]
+# llama.cpp CPU backends as DLLs with run-time selection of the best variant
+# for the processor (the Windows release build; ship the DLLs beside the exe).
+dynamic-backends = ["local", "oft-local?/dynamic-backends"]
 
 [build-dependencies]
 tauri-build = { version = "2.5", features = [] }

@@ -6,7 +6,8 @@
     "frontendDist": "ui/dist",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "bun run dev",
-    "beforeBuildCommand": "bun run build"
+    "beforeBuildCommand": "bun run build",
+    "windows": { "staticVCRuntime": false }
   },
   "app": {
     "windows": [],
@@ -29,6 +30,13 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true },
+      "nsis": {
+        "installMode": "currentUser",
+        "compression": "lzma"
+      }
+    }
   }
 }
