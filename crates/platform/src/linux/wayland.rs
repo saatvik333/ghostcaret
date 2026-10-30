@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::os::fd::AsFd;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use crossbeam_channel::{Receiver, Sender};
 use oft_engine::io::{
@@ -47,6 +47,7 @@ use wayland_protocols_wlr::foreign_toplevel::v1::client::zwlr_foreign_toplevel_m
     self, ZwlrForeignToplevelManagerV1,
 };
 
+use super::commits::Commits;
 use super::field::{self, Surrounding};
 use super::keys::{self, Keyboard};
 use super::shm::{BufferId, Buffers};
@@ -54,9 +55,6 @@ use super::{Command, GATE_LATENCY, RenderJob, Shared, Waker, apps, atspi, status
 use crate::StartError;
 use crate::gate::{Gate, TapStyle, Verdict};
 
-/// How long an insert waits for the field to report the inserted text before
-/// its outcome is reported as unknown.
-const INSERT_CONFIRM: Duration = Duration::from_millis(400);
 /// Longest text in one `commit_string`; protocol messages carry at most 4 KiB.
 const COMMIT_CHUNK: usize = 3900;
 /// Reconnections after the watchdog cut a stalled connection.
@@ -69,12 +67,21 @@ pub(crate) struct Session {
     state: State,
 }
 
+/// Connects to the compositor the environment names.
+pub(crate) fn open() -> Result<Connection, StartError> {
+    Connection::connect_to_env().map_err(|e| {
+        StartError::Unsupported(format!("no Wayland session: {e} (Ghostcaret needs a Wayland compositor)"))
+    })
+}
+
 impl Session {
-    /// Connects, binds the protocols and becomes the seat's input method.
-    pub fn connect(events: Sender<Event>, shared: Arc<Shared>, render: Sender<RenderJob>) -> Result<Session, StartError> {
-        let conn = Connection::connect_to_env().map_err(|e| {
-            StartError::Unsupported(format!("no Wayland session: {e} (Ghostcaret needs a Wayland compositor)"))
-        })?;
+    /// Binds the protocols and becomes the seat's input method.
+    pub fn connect(
+        conn: Connection,
+        events: Sender<Event>,
+        shared: Arc<Shared>,
+        render: Sender<RenderJob>,
+    ) -> Result<Session, StartError> {
         let (globals, mut queue) =
             registry_queue_init::<State>(&conn).map_err(|e| StartError::Failed(format!("Wayland registry: {e}")))?;
         let qh = queue.handle();
@@ -101,7 +108,7 @@ impl Session {
             field: None,
             next_field: 1,
             keys_since_change: 0,
-            inserts: Vec::new(),
+            commits: Commits::default(),
             popup,
             render_seq: 0,
             toplevels: Vec::new(),
@@ -149,7 +156,7 @@ pub(crate) fn run(
                     return;
                 }
                 reconnects += 1;
-                match Session::connect(events.clone(), shared.clone(), render.clone()) {
+                match open().and_then(|conn| Session::connect(conn, events.clone(), shared.clone(), render.clone())) {
                     Ok(s) => {
                         session = s;
                         let _ = events.send(Event::Status(BackendStatus::Ready));
@@ -183,6 +190,8 @@ impl Session {
             if state.unavailable {
                 return Err("the compositor withdrew the input method".into());
             }
+            // Before the flush, so what the timers send goes out now.
+            state.run_timers(Instant::now());
             let write_blocked = match self.conn.flush() {
                 Ok(()) => false,
                 Err(wayland_client::backend::WaylandError::Io(e)) if e.kind() == std::io::ErrorKind::WouldBlock => {
@@ -190,7 +199,6 @@ impl Session {
                 }
                 Err(e) => return Err(e.to_string()),
             };
-            state.expire_inserts(Instant::now());
             let Some(guard) = self.queue.prepare_read() else { continue };
             let timeout = state.next_deadline().map(|d| {
                 let left = d.saturating_duration_since(Instant::now());
@@ -269,6 +277,8 @@ struct Pending {
     surrounding: Option<Surrounding>,
     caused_by_us: Option<bool>,
     content: Option<(u32, u32)>,
+    /// The popup got a new text input rectangle.
+    rect: bool,
 }
 
 /// The focused text field.
@@ -307,12 +317,6 @@ impl Field {
         }
         snap
     }
-}
-
-struct PendingInsert {
-    id: u64,
-    text: String,
-    deadline: Instant,
 }
 
 struct Toplevel {
@@ -434,7 +438,7 @@ pub(crate) struct State {
     /// Keys handled and text committed since the field last changed, to tell
     /// changes we caused from the caret moving under the mouse.
     keys_since_change: u32,
-    inserts: Vec<PendingInsert>,
+    commits: Commits,
     popup: Popup,
     /// Identifies the newest render request; older frames are dropped.
     render_seq: u64,
@@ -560,6 +564,9 @@ impl State {
         };
         let (sym, ch) = kb.sym(code);
         let k = keys::key_in(code, pressed, time, sym, ch, kb.mods());
+        if pressed {
+            self.commits.key_pressed();
+        }
         match self.gate.key(&k) {
             Verdict::Pass | Verdict::Tap => self.vk.key(time, code, state),
             Verdict::Replay(withheld) => {
@@ -570,6 +577,7 @@ impl State {
             Verdict::Insert => {
                 self.im.commit_string(self.gate.accepted().to_owned());
                 self.im.commit(self.serial);
+                self.commits.committed();
             }
         }
         self.keys_since_change = self.keys_since_change.saturating_add(1);
@@ -606,32 +614,50 @@ impl State {
             }
         }
         self.keys_since_change = self.keys_since_change.saturating_add(1);
+        self.commits.committed();
         if confirmable {
-            let deadline = Instant::now() + INSERT_CONFIRM;
-            self.inserts.push(PendingInsert { id: request.id, text: request.text, deadline });
+            self.commits.track(request.id, request.text, Instant::now());
         } else {
             self.send(done(InsertOutcome::Unknown));
         }
     }
 
-    fn expire_inserts(&mut self, now: Instant) {
+    /// Times out inserts, and asks the client again for its text after an
+    /// unchanged reply to our commit (see [`super::commits`]).
+    fn run_timers(&mut self, now: Instant) {
         let events = &self.events;
-        self.inserts.retain(|i| {
-            let keep = i.deadline > now;
-            if !keep {
-                let _ = events.send(Event::InsertDone { id: i.id, outcome: InsertOutcome::Unknown });
-            }
-            keep
+        let ask = self.commits.due(now, |id| {
+            let _ = events.send(Event::InsertDone { id, outcome: InsertOutcome::Unknown });
         });
+        if ask {
+            self.im.commit_string(String::new());
+            self.im.commit(self.serial);
+        }
     }
 
     fn next_deadline(&self) -> Option<Instant> {
-        self.inserts.iter().map(|i| i.deadline).min()
+        self.commits.next_deadline()
     }
 
-    /// Applies the pending state on `done`.
+    /// Applies the pending state on `done` and answers it.
     fn done(&mut self) {
         self.serial = self.serial.wrapping_add(1);
+        let p = &self.pending;
+        let reported =
+            p.activate.is_some() || p.surrounding.is_some() || p.content.is_some() || p.caused_by_us.is_some() || p.rect;
+        self.apply_pending();
+        // Chromium sends its next state only after a `done` whose serial
+        // matches its count of commits, and niri, like wlroots, sends the
+        // client `done` only when the input method commits. So every update
+        // is answered with a commit. Toolkits do nothing on a `done` that
+        // carries nothing, and an update that reports nothing is not
+        // answered, so a client that commits on every `done` cannot loop.
+        if reported && self.field.is_some() {
+            self.im.commit(self.serial);
+        }
+    }
+
+    fn apply_pending(&mut self) {
         let p = std::mem::take(&mut self.pending);
         match p.activate {
             Some(true) => self.begin_field(),
@@ -650,13 +676,17 @@ impl State {
             (field.kind, field.multiline) = (kind, multiline);
         }
         let mut moved = false;
-        if let Some(s) = p.surrounding
-            && field.surrounding.as_ref() != Some(&s)
-        {
-            let old_before = field.surrounding.as_ref().map(|o| o.full_before().to_owned());
-            moved = old_before.as_deref() != Some(s.full_before()) || s.cursor != s.anchor;
-            field.surrounding = Some(s);
-            changed = true;
+        let mut new_text = false;
+        if let Some(s) = p.surrounding {
+            if field.surrounding.as_ref() == Some(&s) {
+                self.commits.unchanged(Instant::now());
+            } else {
+                let old_before = field.surrounding.as_ref().map(|o| o.full_before().to_owned());
+                moved = old_before.as_deref() != Some(s.full_before()) || s.cursor != s.anchor;
+                field.surrounding = Some(s);
+                changed = true;
+                new_text = true;
+            }
         }
         if begun {
             let snap = field.snapshot();
@@ -676,8 +706,14 @@ impl State {
         field.revision += 1;
         let id = field.id;
         let snap = field.snapshot();
-        self.confirm_inserts();
-        let ours = p.caused_by_us == Some(true) && !self.inserts.is_empty();
+        let ours = p.caused_by_us == Some(true) && self.commits.has_inserts();
+        if new_text {
+            let before = field.surrounding.as_ref().map_or("", |s| s.full_before());
+            let events = &self.events;
+            self.commits.changed(before, |id| {
+                let _ = events.send(Event::InsertDone { id, outcome: InsertOutcome::Inserted });
+            });
+        }
         if moved && self.keys_since_change == 0 && !ours && matches!(self.gate.overlay(), Overlay::Suggestion(_)) {
             // The caret moved without a key: a click, or the app changed the
             // text. The suggestion no longer applies here.
@@ -717,31 +753,11 @@ impl State {
         self.send_gate_events();
         self.release_keyboard();
         self.popup.hide();
-        for i in self.inserts.drain(..) {
-            let _ = self.events.send(Event::InsertDone { id: i.id, outcome: InsertOutcome::Unknown });
-        }
-        self.send(Event::Blur);
-    }
-
-    /// Reports inserts whose text now precedes the caret.
-    fn confirm_inserts(&mut self) {
-        let Some(before) = self.field.as_ref().and_then(|f| f.surrounding.as_ref()).map(|s| s.full_before()) else {
-            return;
-        };
         let events = &self.events;
-        self.inserts.retain(|i| {
-            // Only the tail of a long insert fits in the surrounding text.
-            let tail_start = i.text.len().saturating_sub(before.len());
-            let mut tail = &i.text[..];
-            if let Some(start) = (tail_start..=i.text.len()).find(|&s| i.text.is_char_boundary(s)) {
-                tail = &i.text[start..];
-            }
-            let landed = before.ends_with(tail);
-            if landed {
-                let _ = events.send(Event::InsertDone { id: i.id, outcome: InsertOutcome::Inserted });
-            }
-            !landed
+        self.commits.clear(|id| {
+            let _ = events.send(Event::InsertDone { id, outcome: InsertOutcome::Unknown });
         });
+        self.send(Event::Blur);
     }
 
     fn app_info(&mut self) -> AppInfo {
@@ -883,7 +899,7 @@ impl Dispatch<ZwpInputMethodKeyboardGrabV2, ()> for State {
 
 impl Dispatch<ZwpInputPopupSurfaceV2, ()> for State {
     fn event(
-        _: &mut Self,
+        state: &mut Self,
         _: &ZwpInputPopupSurfaceV2,
         event: zwp_input_popup_surface_v2::Event,
         _: &(),
@@ -892,6 +908,7 @@ impl Dispatch<ZwpInputPopupSurfaceV2, ()> for State {
     ) {
         if let zwp_input_popup_surface_v2::Event::TextInputRectangle { x, y, width, height } = event {
             log::debug!("text input rectangle relative to the popup: {x},{y} {width}x{height}");
+            state.pending.rect = true;
         }
     }
 }
@@ -978,9 +995,7 @@ impl Dispatch<ZwlrForeignToplevelHandleV1, ()> for State {
             E::Title { title } => state.toplevels[i].title = title,
             E::AppId { app_id } => state.toplevels[i].app_id = app_id,
             E::State { state: bytes } => {
-                let activated = bytes
-                    .chunks_exact(4)
-                    .any(|c| u32::from_ne_bytes([c[0], c[1], c[2], c[3]]) == ACTIVATED);
+                let activated = bytes.as_chunks::<4>().0.iter().any(|&c| u32::from_ne_bytes(c) == ACTIVATED);
                 state.toplevels[i].pending_activated = Some(activated);
             }
             E::Done => {
@@ -1012,3 +1027,6 @@ impl Dispatch<ZwlrForeignToplevelHandleV1, ()> for State {
 
 /// `zwlr_foreign_toplevel_handle_v1.state.activated`.
 const ACTIVATED: u32 = 2;
+
+#[cfg(test)]
+mod tests;

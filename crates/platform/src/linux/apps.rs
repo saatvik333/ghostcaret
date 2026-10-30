@@ -35,10 +35,11 @@ fn entry_name(entry: &str) -> Option<&str> {
     for line in entry.lines().map(str::trim) {
         if line.starts_with('[') {
             in_main = line == "[Desktop Entry]";
-        } else if in_main && let Some(value) = line.strip_prefix("Name") {
-            if let Some(value) = value.trim_start().strip_prefix('=') {
-                return Some(value.trim()).filter(|v| !v.is_empty());
-            }
+        } else if in_main
+            && let Some(value) = line.strip_prefix("Name")
+            && let Some(value) = value.trim_start().strip_prefix('=')
+        {
+            return Some(value.trim()).filter(|v| !v.is_empty());
         }
     }
     None

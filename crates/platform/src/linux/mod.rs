@@ -14,7 +14,9 @@
 //! - Display: an input-method popup surface, which the compositor places at
 //!   the text field's caret, drawn by `oft-render` on its own thread.
 //! - Insert: `delete_surrounding_text` + `commit_string` + `commit`,
-//!   confirmed by the next surrounding text.
+//!   confirmed by the surrounding text that follows, see [`commits`].
+//!   Every state update from the app is answered with a `commit`, which
+//!   Chromium needs before it sends the next one.
 //! - Conversation: AT-SPI, see [`atspi`].
 //!
 //! Threads: one owns the Wayland connection and the key gate and never
@@ -23,6 +25,7 @@
 
 mod apps;
 mod atspi;
+mod commits;
 mod field;
 mod keys;
 mod portal;
@@ -103,6 +106,18 @@ pub(crate) struct Shared {
 }
 
 impl Shared {
+    pub fn new() -> Shared {
+        Shared {
+            focus: Mutex::new(None),
+            epoch: Instant::now(),
+            busy_since: AtomicU64::new(0),
+            watchdog_parked: AtomicBool::new(false),
+            watchdog: Mutex::new(None),
+            socket: Mutex::new(None),
+            stalled: AtomicBool::new(false),
+        }
+    }
+
     fn now_ms(&self) -> u64 {
         self.epoch.elapsed().as_millis() as u64 + 1
     }
@@ -136,6 +151,13 @@ impl Shared {
 pub(crate) struct Waker(OwnedFd);
 
 impl Waker {
+    pub fn new() -> Result<Waker, StartError> {
+        use rustix::event::EventfdFlags;
+        rustix::event::eventfd(0, EventfdFlags::CLOEXEC | EventfdFlags::NONBLOCK)
+            .map(Waker)
+            .map_err(|e| StartError::Failed(format!("cannot create an eventfd: {e}")))
+    }
+
     pub fn wake(&self) {
         // An eventfd write only fails when the counter would overflow, in
         // which case the thread is awake anyway.
@@ -174,18 +196,8 @@ impl LinuxBackend {
     /// when the session has no Wayland display, lacks a required protocol,
     /// or another input method is already running.
     pub fn start(events: Sender<Event>) -> Result<Arc<LinuxBackend>, StartError> {
-        let shared = Arc::new(Shared {
-            focus: Mutex::new(None),
-            epoch: Instant::now(),
-            busy_since: AtomicU64::new(0),
-            watchdog_parked: AtomicBool::new(false),
-            watchdog: Mutex::new(None),
-            socket: Mutex::new(None),
-            stalled: AtomicBool::new(false),
-        });
-        let wake = rustix::event::eventfd(0, rustix::event::EventfdFlags::CLOEXEC | rustix::event::EventfdFlags::NONBLOCK)
-            .map_err(|e| StartError::Failed(format!("cannot create an eventfd: {e}")))?;
-        let waker = Arc::new(Waker(wake));
+        let shared = Arc::new(Shared::new());
+        let waker = Arc::new(Waker::new()?);
         let (commands, command_rx) = crossbeam_channel::unbounded();
         let (render, render_rx) = crossbeam_channel::unbounded();
 
@@ -201,7 +213,9 @@ impl LinuxBackend {
             0,
             spawn("oft-wayland", {
                 let (shared, waker, render) = (shared.clone(), waker.clone(), render.clone());
-                move || match wayland::Session::connect(events.clone(), shared.clone(), render.clone()) {
+                move || match wayland::open().and_then(|conn| {
+                    wayland::Session::connect(conn, events.clone(), shared.clone(), render.clone())
+                }) {
                     Ok(session) => {
                         let _ = ready_tx.send(Ok(()));
                         wayland::run(session, command_rx, waker, events, shared, render);

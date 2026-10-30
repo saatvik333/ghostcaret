@@ -224,14 +224,15 @@ fn messages_before_focus(tree: &mut Tree<'_>, frame: &Node) -> Option<Vec<Messag
         } else {
             container
         };
-        if is_block(role) && !has(states, STATE_EDITABLE) {
-            if let Some(text) = tree.text(&node, 0) {
-                let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
-                if !text.is_empty() {
-                    blocks.push((container, text));
-                }
-                continue;
+        if is_block(role)
+            && !has(states, STATE_EDITABLE)
+            && let Some(text) = tree.text(&node, 0)
+        {
+            let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+            if !text.is_empty() {
+                blocks.push((container, text));
             }
+            continue;
         }
         let children = tree.children(&node);
         for child in children.into_iter().rev() {

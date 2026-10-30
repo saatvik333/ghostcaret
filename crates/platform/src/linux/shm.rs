@@ -83,8 +83,8 @@ impl Buffers {
             row.fill(0);
             if y < src_rows {
                 let src = &pixels[y * src_width as usize..(y + 1) * src_width as usize];
-                for (d, p) in row.chunks_exact_mut(4).zip(src) {
-                    d.copy_from_slice(&p.to_ne_bytes());
+                for (d, p) in row.as_chunks_mut::<4>().0.iter_mut().zip(src) {
+                    *d = p.to_ne_bytes();
                 }
             }
         }

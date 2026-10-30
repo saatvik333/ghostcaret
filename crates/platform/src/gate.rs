@@ -23,12 +23,14 @@ pub const KEY_CODES: u32 = 1024;
 /// other key in between, is a tap.
 pub const TAP_MAX_MS: u32 = 400;
 
-/// How the Reply & rewrite modifier tap treats the modifier's own press.
+/// How modifier presses reach the app.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TapStyle {
-    /// The press is withheld until another key shows it is used as a modifier
-    /// ([`Verdict::Replay`]); a tap never reaches the app. For backends that
-    /// forward keys themselves.
+    /// The press of the Reply & rewrite modifier, and of a modifier in a
+    /// chord the gate would consume now, is withheld until another key shows
+    /// it is used as a modifier ([`Verdict::Replay`]). A Reply & rewrite tap
+    /// and a modifier whose chord was consumed never reach the app. For
+    /// backends that forward keys themselves.
     #[cfg_attr(
         target_os = "windows",
         allow(dead_code, reason = "only the Linux backend forwards keys itself")
@@ -160,6 +162,14 @@ struct ArmedTap {
     since: u32,
 }
 
+/// A [`TapStyle::Defer`] modifier press not yet forwarded to the app.
+#[derive(Clone, Copy, Debug)]
+struct Withheld {
+    code: u32,
+    /// A key pressed with it was consumed, so the app must never see it.
+    hidden: bool,
+}
+
 /// Reports queued before the backend drains them; enough for any burst of
 /// keys between two drains, so the queue does not grow on the key path.
 const REPORTS: usize = 64;
@@ -179,8 +189,7 @@ pub struct Gate {
     /// Keys whose press was consumed; their repeats and release are too.
     consumed: KeySet,
     tap: Option<ArmedTap>,
-    /// A [`TapStyle::Defer`] modifier press not yet forwarded to the app.
-    withheld: Option<u32>,
+    withheld: Option<Withheld>,
     reports: Vec<Report>,
     /// Text taken by Take Word and Take All since the last drain.
     taken: String,
@@ -331,10 +340,13 @@ impl Gate {
         match verdict {
             Verdict::Consume | Verdict::Insert => {
                 self.consumed.insert(k.code);
+                if let Some(w) = &mut self.withheld {
+                    w.hidden = true;
+                }
                 verdict
             }
             Verdict::Pass => match self.withheld.take() {
-                Some(code) => Verdict::Replay(code),
+                Some(w) => Verdict::Replay(w.code),
                 None => Verdict::Pass,
             },
             Verdict::Replay(_) | Verdict::Tap => verdict,
@@ -357,7 +369,16 @@ impl Gate {
                 TapStyle::Pass => Verdict::Pass,
             };
         }
-        if self.withheld.take_if(|&mut c| c == k.code).is_some() || self.consumed.remove(k.code) {
+        if let Some(w) = self.withheld.take_if(|w| w.code == k.code) {
+            // Pressed and released on its own, the modifier reaches the app
+            // as typed; hidden behind a consumed chord, it never does.
+            return if w.hidden {
+                Verdict::Consume
+            } else {
+                Verdict::Replay(k.code)
+            };
+        }
+        if self.consumed.remove(k.code) {
             return Verdict::Consume;
         }
         Verdict::Pass
@@ -365,7 +386,7 @@ impl Gate {
 
     fn modifier_press(&mut self, k: &KeyIn, m: Modifier, repeat: bool) -> Verdict {
         if repeat {
-            return if self.withheld == Some(k.code) {
+            return if self.withheld.is_some_and(|w| w.code == k.code) {
                 Verdict::Consume
             } else {
                 Verdict::Pass
@@ -376,25 +397,60 @@ impl Gate {
             others.remove(k.code);
             !others.is_empty()
         };
-        let trigger = self.bindings.flow_draft == Some(Trigger::ModifierTap(m));
-        if !trigger || others_held {
-            self.tap = None;
-            return match self.withheld.take() {
-                Some(code) => Verdict::Replay(code),
-                None => Verdict::Pass,
+        if self.bindings.flow_draft == Some(Trigger::ModifierTap(m)) && !others_held {
+            self.tap = Some(ArmedTap {
+                code: k.code,
+                since: k.time_ms,
+            });
+            return match self.taps {
+                TapStyle::Defer => {
+                    self.withheld = Some(Withheld {
+                        code: k.code,
+                        hidden: false,
+                    });
+                    Verdict::Consume
+                }
+                TapStyle::Pass => Verdict::Pass,
             };
         }
-        self.tap = Some(ArmedTap {
-            code: k.code,
-            since: k.time_ms,
-        });
-        match self.taps {
-            TapStyle::Defer => {
-                self.withheld = Some(k.code);
-                Verdict::Consume
-            }
-            TapStyle::Pass => Verdict::Pass,
+        self.tap = None;
+        // A modifier of a chord the gate would consume now is held back too,
+        // so that when the chord is consumed the app never sees a lone
+        // modifier: Firefox and GTK menus open on Alt pressed and released
+        // alone, which took the focus from the field after Alt+→.
+        if self.taps == TapStyle::Defer && !others_held && self.in_live_chord(m) {
+            self.withheld = Some(Withheld {
+                code: k.code,
+                hidden: false,
+            });
+            return Verdict::Consume;
         }
+        match self.withheld.take() {
+            Some(w) => Verdict::Replay(w.code),
+            None => Verdict::Pass,
+        }
+    }
+
+    /// Whether a bound chord the gate would consume now uses `m`.
+    fn in_live_chord(&self, m: Modifier) -> bool {
+        let b = &self.bindings;
+        let draft = match b.flow_draft {
+            Some(Trigger::Chord(c)) => Some(c),
+            _ => None,
+        };
+        let suggestion = matches!(self.overlay, Overlay::Suggestion(_));
+        let shown = [
+            b.take_word,
+            b.take_all,
+            b.show_more,
+            b.next_alternative,
+            b.prev_alternative,
+            b.dismiss,
+        ];
+        draft
+            .into_iter()
+            .chain(shown.into_iter().flatten().filter(|_| suggestion))
+            .any(|c| uses(c.mods, m))
     }
 
     fn press(&mut self, k: &KeyIn, repeat: bool) -> Verdict {
@@ -536,6 +592,16 @@ fn bound(chord: Option<Chord>, k: &KeyIn) -> bool {
     match (chord.key, key) {
         (Key::Char(x), Key::Char(y)) => x == y && same_but_shift,
         (x, y) => x == y && same_but_shift && a.shift == b.shift,
+    }
+}
+
+/// Whether `mods` includes the kind of modifier `m` is.
+fn uses(mods: Mods, m: Modifier) -> bool {
+    match m {
+        Modifier::LeftAlt | Modifier::RightAlt => mods.alt,
+        Modifier::LeftCtrl | Modifier::RightCtrl => mods.ctrl,
+        Modifier::LeftShift | Modifier::RightShift => mods.shift,
+        Modifier::LeftMeta | Modifier::RightMeta => mods.meta,
     }
 }
 
@@ -1080,6 +1146,53 @@ mod tests {
             Verdict::Consume
         );
         assert_eq!(events(&mut g), [Event::Action(Action::ShowMore)]);
+    }
+
+    const LALT: u32 = 56;
+
+    /// Regression: Alt+→ consumed the arrow but let Alt through, so Firefox
+    /// saw Alt pressed and released alone, opened its menu bar and took the
+    /// focus from the field.
+    #[test]
+    fn a_chord_modifier_is_hidden_when_its_chord_is_consumed() {
+        let mut v = view(" world, how are you");
+        v.shown = 6;
+        v.step_ends = vec![11];
+        let mut g = gate_with(Overlay::Suggestion(v), TapStyle::Defer);
+        let alt = |down, t| modifier(LALT, Modifier::LeftAlt, down, t);
+        assert_eq!(g.key(&alt(true, 0)), Verdict::Consume);
+        assert_eq!(g.key(&alt(true, 30)), Verdict::Consume, "repeat");
+        assert_eq!(g.key(&named(RIGHT, Key::Right, ALT, true)), Verdict::Consume);
+        assert_eq!(g.key(&named(RIGHT, Key::Right, ALT, false)), Verdict::Consume);
+        assert_eq!(g.key(&alt(false, 60)), Verdict::Consume);
+        assert_eq!(shown(&g), Some(" world, how"));
+        assert!(events(&mut g).is_empty());
+    }
+
+    #[test]
+    fn a_chord_modifier_reaches_the_app_when_tapped_or_used_elsewhere() {
+        let mut g = suggesting(" world");
+        let alt = |down, t| modifier(LALT, Modifier::LeftAlt, down, t);
+        assert_eq!(g.key(&alt(true, 0)), Verdict::Consume);
+        assert_eq!(g.key(&alt(false, 50)), Verdict::Replay(LALT), "a lone tap");
+
+        assert_eq!(g.key(&alt(true, 100)), Verdict::Consume);
+        assert_eq!(g.key(&ch('d', ALT, true)), Verdict::Replay(LALT), "an app shortcut");
+        assert_eq!(g.key(&ch('d', ALT, false)), Verdict::Pass);
+        assert_eq!(g.key(&alt(false, 150)), Verdict::Pass);
+    }
+
+    #[test]
+    fn chord_modifiers_pass_at_once_when_no_chord_can_act() {
+        let mut g = Gate::new(TapStyle::Defer);
+        g.set_focus(Some(FIELD));
+        assert_eq!(g.key(&modifier(LALT, Modifier::LeftAlt, true, 0)), Verdict::Pass);
+        assert_eq!(g.key(&modifier(LALT, Modifier::LeftAlt, false, 50)), Verdict::Pass);
+        let mut g = gate_with(card(None), TapStyle::Defer);
+        assert_eq!(g.key(&modifier(LALT, Modifier::LeftAlt, true, 0)), Verdict::Pass);
+        // A backend that lets presses through masks the release itself.
+        let mut g = gate_with(Overlay::Suggestion(view(" world")), TapStyle::Pass);
+        assert_eq!(g.key(&modifier(LALT, Modifier::LeftAlt, true, 0)), Verdict::Pass);
     }
 
     #[test]
