@@ -8,6 +8,7 @@ members = [
     "crates/render",
     "crates/store",
     "crates/runtime",
+    "crates/bench",
     "app",
 ]
 default-members = ["crates/engine"]
