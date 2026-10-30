@@ -1,0 +1,10 @@
+/target/
+node_modules/
+/app/ui/dist/
+*.gguf
+.DS_Store
+/app/gen/android/.gradle/
+/app/gen/android/build/
+/app/gen/android/app/build/
+/app/gen/android/local.properties
+/app/gen/android/**/jniLibs/

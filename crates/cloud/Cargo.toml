@@ -1,0 +1,25 @@
+[package]
+name = "oft-cloud"
+description = "Cloud model providers (OpenAI-compatible, Anthropic, Gemini) and Flow Draft generation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+oft-engine.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+log.workspace = true
+fastrand = "2"
+# Blocking HTTP/1.1 with a connection pool and rustls (ring, bundled roots).
+# No gzip: compressed SSE would be buffered by the decoder, delaying tokens.
+ureq = { version = "3", default-features = false, features = ["rustls"] }
+
+[dev-dependencies]
+proptest = "1"
+
+[lints]
+workspace = true

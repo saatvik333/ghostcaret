@@ -1,16 +1,15 @@
 # open-flowtype architecture
 
-Status: draft plan, 2026-10-30. Nothing here is implemented yet. The product behaviour this design must deliver is in [product.md](product.md), and the measured targets it must meet are in [quality.md](quality.md).
+Status: in development, 2026-10-30. The workspace and the shared contracts exist; the components are being built. The product behaviour this design must deliver is in [product.md](product.md), and the measured targets it must meet are in [quality.md](quality.md).
 
 ## Overview
 
 open-flowtype is one Tauri 2 application, written in Rust, built for each platform. The same Rust engine runs everywhere. A Rust module for each operating system reads text, catches keys, shows suggestions and inserts text. Tauri provides the windows, tray, settings interface, updater and packaging.
 
-Three pieces need a little non-Rust code because the operating system requires it. Each is a thin shim that hands text to the Rust engine:
+Two pieces need a little non-Rust code because the operating system requires it. Each is a thin shim that hands text to the Rust engine:
 
 - the Android keyboard service, in Kotlin;
-- the iOS keyboard extension, in Swift;
-- the Linux input-method plugin.
+- the iOS keyboard extension, in Swift.
 
 ```mermaid
 flowchart LR
@@ -25,29 +24,32 @@ flowchart LR
   end
   PLAT <--> OS["OS APIs: Accessibility, UI Automation,<br/>input method, keyboard service"]
   ENG -->|only if configured| CLOUD["User's provider<br/>(own key)"]
-  LIME["Linux input-method plugin"] <-->|Unix socket| PLAT
 ```
 
-## Planned repository layout
+## Repository layout
 
 | Path | Contents |
 | --- | --- |
-| `crates/engine` | Prediction, length and boldness control, providers, Flow Draft, secret filter. No UI and no OS calls |
+| `crates/engine` | The contracts every backend and model provider implements; settings; text units, stop rules, prompts, secret filter; the controller state machine. No UI, no OS calls, no model code |
+| `crates/local` | Local inference through llama.cpp, and the model store (manifest, verified downloads) |
+| `crates/cloud` | Providers for the user's own key (OpenAI-compatible, Anthropic, Gemini) and the "What was sent" log |
 | `crates/platform` | Field reading, key gate, display and insertion for each OS, in modules compiled per platform |
+| `crates/render` | Software renderer for the suggestion panel and the Flow Draft card, shared by the Linux and Windows overlays |
 | `crates/bench` | Replay benchmark |
-| `app/` | Tauri application: windows, tray, updater, model manager, keychain access |
-| `app/ui` | Web interface for settings, setup, the Flow Draft card and the alternatives menu |
-| `linux-ime/` | Input-method plugin; its form is decided in the Linux spike |
-| `mobile/android` | Keyboard service (Kotlin), packaged as a Tauri mobile plugin |
+| `app/` | Tauri application: runtime, tray, settings, setup, model manager, keychain access |
+| `app/ui` | Web interface for settings and setup |
+| `mobile/android` | Keyboard service (Kotlin) and its test harness, moved into the Tauri Android project once integrated |
 | `mobile/ios` | Keyboard extension (Swift), linking the engine as a static library |
+
+The engine never depends on model or OS code. The controller in `crates/engine` is a pure state machine: the app runtime feeds it backend events, model results and timer expiries, and executes the outputs it returns. Every product rule therefore lives in one place and is tested without an OS or a model.
 
 ## Process model
 
 On the desktop, open-flowtype runs as one process per user: the Tauri app, started at login and living in the tray. It loads the model, the engine and the platform modules. It opens no network listening ports.
 
-On Linux, the input-method plugin runs inside fcitx5 or IBus. It forwards field events to the app over a Unix socket in `$XDG_RUNTIME_DIR`, and accepts only connections from the same user, checked with `SO_PEERCRED`. The socket protocol is versioned, and a mismatch is reported to the user instead of failing silently. If the app is not running, the plugin passes every key through untouched.
+On Linux, the app itself is the input method. It speaks the Wayland input-method protocol (`zwp_input_method_v2`) from a dedicated thread on its own Wayland connection, so no fcitx5 or IBus plugin and no socket are involved. While a text field is active it holds a keyboard grab, handles bound keys, and forwards every other key unchanged through a virtual keyboard (`zwp_virtual_keyboard_v1`). If the app exits or crashes, the compositor drops the grab and typing continues without it.
 
-On Android, the keyboard service process hosts the engine through JNI, by way of the Tauri mobile plugin. The Tauri app provides settings and setup.
+On Android, the keyboard service hosts the engine through JNI. The engine runs in the keyboard's process; the Tauri app in the same APK provides settings and setup.
 
 On iOS, the keyboard extension links the engine as a static library built without llama.cpp, because extensions have too little memory for a local model. The container app is the Tauri app. Settings are shared through an App Group, and keys through a shared keychain access group.
 
@@ -67,19 +69,19 @@ Each OS module provides the same capabilities to the engine:
 
 How each platform provides them:
 
-| | macOS | Windows | Linux | Android | iOS |
+| | macOS | Windows | Linux (Wayland) | Android | iOS |
 | --- | --- | --- | --- | --- | --- |
-| Focus | AXObserver focus notifications and NSWorkspace app activation | UI Automation focus-changed events | Input-method focus-in and focus-out | `onStartInput` with `EditorInfo` (package name, input type) | Keyboard extension lifecycle |
-| Field text and selection | AXUIElement value and selected range | UI Automation `TextPattern` / `TextPattern2` | Surrounding text and cursor from the input-method protocol (`text-input-v3` on Wayland, IM modules on X11) | `InputConnection.getTextBeforeCursor` / `getTextAfterCursor` / `getSelectedText` | `textDocumentProxy` context before and after input, selected text |
-| Cursor position | Accessibility bounds for the cursor's range | UI Automation text range bounding rectangles | Known to the input method; the compositor places input-method popups | Not needed: the keyboard shows the suggestion | Not needed |
-| Password fields | Secure text field role | `IsPassword` property | Content purpose `password` | Password input types | Secure text entry |
-| Keys | `CGEventTap`. The callback must return fast, or macOS disables the tap | Low-level keyboard hook (`WH_KEYBOARD_LL`) | Keys arrive at the input method | The keyboard's own keys | The keyboard's own keys |
-| Display | Non-activating, click-through `NSPanel` (Tauri window via [tauri-nspanel](https://github.com/ahkohd/tauri-nspanel)) | Topmost layered window that never activates and ignores the mouse | Input-method pre-edit text, or the input-method panel at the cursor | Suggestion strip | Suggestion strip |
-| Insert | Unicode keyboard events, or paste with clipboard restore | `SendInput` Unicode, or paste with clipboard restore | Commit text and delete surrounding text | `commitText`, `setComposingText`, `deleteSurroundingText` | `insertText`, `deleteBackward` |
+| Focus | AXObserver focus notifications and NSWorkspace app activation | UI Automation focus-changed events | Input-method `activate` and `deactivate`; app id and title of the active window from `zwlr_foreign_toplevel_manager_v1` | `onStartInput` with `EditorInfo` (package name, input type) | Keyboard extension lifecycle |
+| Field text and selection | AXUIElement value and selected range | UI Automation `TextPattern` / `TextPattern2` | `surrounding_text` (UTF-8, cursor and anchor) from the input-method protocol | `InputConnection.getTextBeforeCursor` / `getTextAfterCursor` / `getSelectedText` | `textDocumentProxy` context before and after input, selected text |
+| Cursor position | Accessibility bounds for the cursor's range | UI Automation text range bounding rectangles | Known to the compositor, which places the input-method popup and reports the cursor rectangle relative to it | Not needed: the keyboard shows the suggestion | Not needed |
+| Password fields | Secure text field role | `IsPassword` property | Content purpose `password` or `pin` | Password input types | Secure text entry |
+| Keys | `CGEventTap`. The callback must return fast, or macOS disables the tap | Low-level keyboard hook (`WH_KEYBOARD_LL`) | Input-method keyboard grab; unconsumed keys forwarded through a virtual keyboard | The keyboard's own keys | The keyboard's own keys |
+| Display | Non-activating, click-through `NSPanel` (Tauri window via [tauri-nspanel](https://github.com/ahkohd/tauri-nspanel)) | Topmost layered window that never activates and ignores the mouse, drawn by `crates/render` | Input-method popup surface at the cursor, drawn by `crates/render` | Suggestion strip | Suggestion strip |
+| Insert | Unicode keyboard events, or paste with clipboard restore | `SendInput` Unicode, or paste with clipboard restore | `delete_surrounding_text` and `commit_string` | `commitText`, `setComposingText`, `deleteSurroundingText` | `insertText`, `deleteBackward` |
 | Conversation | Accessibility tree of the window; Vision OCR fallback with Screen Recording permission | UI Automation tree; `Windows.Media.Ocr` fallback | AT-SPI over D-Bus; screenshot portal plus OCR fallback | Not available to keyboards | Not available to keyboards |
 | Secure input / blocked | `IsSecureEventInputEnabled` | Elevated windows are unreachable (UIPI) | Password purpose | Password types | Secure fields use the system keyboard |
 
-Linux uses the input-method route on both Wayland and X11, so there is one Linux code path. On Wayland it is the only route that works: ordinary windows cannot learn the cursor's position or place themselves next to it, and there is no global keyboard capture.
+On Wayland the input-method route is the only one that works: ordinary windows cannot learn the cursor's position or place themselves next to it, and there is no global keyboard capture. `zwp_input_method_v2` is offered by niri, sway, Hyprland, river, labwc and other wlroots- and Smithay-based compositors. Only one input method can be bound at a time, so open-flowtype cannot run alongside fcitx5 or IBus. KDE Plasma (which offers `zwp_input_method_v1`), GNOME (which uses IBus over D-Bus) and X11 sessions need their own adapters; see the open decisions.
 
 ## Engine
 
@@ -163,8 +165,10 @@ Each provider adapter declares what it supports: streaming, token probabilities,
 
 - Autocomplete has at most one request in flight. A new keystroke cancels it, and the cancellation reaches the HTTP layer so the provider can stop. Autocomplete requests are never retried, because a late answer is useless.
 - Flow Draft requests retry transient failures (rate limits, overload, transport errors) a bounded number of times, within an end-to-end deadline.
-- A per-minute client limit always applies, and the user can add a daily cap.
-- Keys are read from the OS keychain at call time. They never enter prompts or logs, and never appear in the "What was sent" view.
+- A per-minute client limit always applies in the provider; the app runtime enforces the user's daily cap and keeps its count across restarts.
+- Keys are read from the OS keychain when the provider is built, and the provider is rebuilt when the key or provider settings change. They never enter prompts or logs, and never appear in the "What was sent" view. A key is refused over plain `http://` unless the host is loopback or on the local network, and redirects are never followed.
+- Each provider learns what the endpoint supports from its rejections: an OpenAI-compatible server without `/completions` falls back to chat, and a parameter the model rejects (log probabilities, temperature, output-limit field, reasoning effort) is dropped for later requests. Each lesson costs one extra request.
+- Cloud providers return only the main candidate; alternatives come from the local model.
 - When a text field gets focus, the HTTPS connection to the provider is opened and kept alive, so the first request skips the connection handshake.
 - Requests ask for token probabilities where the provider offers them, and set the output limit from the length mode, so no tokens are paid for that cannot be shown.
 - The stable-first segment order also matches how provider prompt caches work, so repeated requests reuse the cached prefix where the provider supports it.
@@ -221,13 +225,13 @@ It also respects clipboard markers that password managers set: `org.nspasteboard
 
 | Platform | Package | Updates |
 | --- | --- | --- |
-| Linux | deb, rpm, AUR; the input-method plugin installs alongside | Distribution package manager |
+| Linux | deb, rpm, AUR | Distribution package manager |
 | macOS | Signed and notarized DMG | Tauri updater, signed |
 | Windows | Signed MSI or NSIS installer | Tauri updater, signed |
 | Android | APK, F-Droid; Google Play later | Store or F-Droid |
 | iOS | TestFlight, then the App Store | App Store |
 
-Flatpak is not planned for the first Linux release, because the input-method plugin and AT-SPI access have to live on the host.
+Flatpak is not planned for the first Linux release, because the input method needs the host's Wayland input-method protocol and AT-SPI access.
 
 ## Performance design
 
@@ -251,8 +255,8 @@ Each request records stage timings in release builds: read, filter, build, decod
 
 ## Security boundaries
 
-- No network listener. The only local channel is the Linux plugin socket, with a same-user peer check.
-- API keys stay in the OS keychain and are read at call time. They never go into prompts, logs or the "What was sent" view.
+- No network listener and no local socket.
+- API keys stay in the OS keychain and are loaded only to build the provider. They never go into prompts, logs or the "What was sent" view.
 - Text from fields, screens, clipboards and conversations is data. It cannot trigger an action or change a setting.
 - Text is inserted only after an explicit accept: an accept key for autocomplete, the accept button for Flow Draft. Nothing is ever sent.
 - Model files are verified against SHA-256 hashes from the manifest inside the signed app. Updates are signed.
@@ -268,8 +272,8 @@ Each spike ends in a written result.
 
 | Spike | Question | Done when |
 | --- | --- | --- |
-| Linux input method | On niri, can a plugin read surrounding text and show a suggestion inline (pre-edit) or in the panel? Can it identify the app for per-app rules? Do Chromium and Electron work with `--enable-wayland-ime`? What latency does the plugin add per keystroke? | The display method and plugin form are chosen, with a list of apps that work and the plugin within the key-path budget |
-| Overlay | On macOS and Windows, can a Tauri window be transparent, click-through and never take focus, sit at the cursor, update within one frame, and stay inside the memory budget? | A choice between a Tauri webview window and a natively drawn window, backed by measurements |
+| Linux input method | Does a native `zwp_input_method_v2` client work on niri: grab and forwarding, surrounding text, popup placement at the cursor, app identity? Which apps work, and do Chromium and Electron work with `--enable-wayland-ime`? What does forwarding add per keystroke? | A list of apps that work, popup placement measured, gate time within the key-path budget |
+| Overlay | On Windows (and later macOS), does a natively drawn layered window sit at the cursor, update within one frame, and stay inside the memory budget? | Measured placement and frame time |
 | Engine | Latency, memory and keystroke savings of the shortlisted models on the reference machines; KV reuse; whether the length cuts feel natural; each technique under evaluation | Measured results against [quality.md](quality.md), and a decision on each technique |
 | Benchmark | A first harness with one corpus | A report comparing every shortlisted model |
 
@@ -289,17 +293,17 @@ Each spike ends in a written result.
 | 2026-10-29 | Build order: Linux, macOS, Windows, Android, iOS | Linux is the maintainer's daily platform and has no comparable product |
 | 2026-10-29 | First release on each platform includes autocomplete and Flow Draft | Both features from the start |
 | 2026-10-30 | Defaults: Auto length; Tab, backtick, Alt+→; setup asks local or key; 16 GB local-model floor | See product.md |
-| 2026-10-29 | Linux through the input method on X11 and Wayland | Wayland reveals the cursor and keys only to input methods; one code path for both |
+| 2026-10-29 | Linux through the input method | Wayland reveals the cursor and keys only to input methods |
+| 2026-10-30 | On Wayland, the app is the input method itself (`zwp_input_method_v2`), with no fcitx5 or IBus plugin | All Rust, no socket or second process, nothing to install system-wide; niri and other wlroots- and Smithay-based compositors support it |
+| 2026-10-30 | Engine split into `engine` (logic and contracts), `local`, `cloud`; overlay drawn by `crates/render` on Linux and Windows | The engine stays free of model and OS code; one renderer serves both overlays |
+| 2026-10-30 | Android ships its own keyboard inside the APK | Keyboards are the only Android component that can insert text everywhere without the accessibility API |
 | 2026-10-29 | Clean-room development | Avoids importing closed-source code or terms |
 | 2026-10-30 | Measured release gates in quality.md: latency, resource use, suggestion quality, parity floor | Best in class is a measured claim; nothing ships below the bar |
 
 ## Open technical decisions
 
-- The Linux plugin's form: a fcitx5 add-on (a C++ shim calling into Rust), an IBus engine (Rust over D-Bus), or both. GNOME ships IBus; many other desktops use fcitx5.
-- Display on Linux: pre-edit text (inline, but apps usually underline it and treat it as composing text) or the input-method panel next to the cursor.
-- How to identify the app on Wayland for per-app rules.
-- The llama.cpp binding: an existing crate or a thin binding of our own.
-- The web framework for the Tauri windows.
-- Overlay rendering: a Tauri webview window or a natively drawn window (overlay spike).
+- Adapters for KDE Plasma (`zwp_input_method_v1`), GNOME (IBus engine over D-Bus) and X11 sessions.
+- Living alongside a user's CJK input method on Linux, since only one input method can be bound.
+- The llama.cpp binding: an existing crate or a thin binding of our own (being decided in the engine work).
 - OCR on Linux, which has no system OCR service.
 - The curated local models (benchmark plus license review).

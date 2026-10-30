@@ -162,7 +162,7 @@ Stats are kept on the device: words accepted, keystrokes saved, and acceptance r
 
 | Platform | How suggestions appear | Permissions requested | Known limits |
 | --- | --- | --- | --- |
-| Linux | Through the input method (fcitx5 or IBus): inline in the field, or in a small panel at the cursor | Enable open-flowtype's input-method plugin; the screenshot portal only for OCR | Apps must support the input-method protocols. Chromium and Electron on Wayland need `--enable-wayland-ime` ([fcitx5 Wayland guide](https://fcitx-im.org/wiki/Using_Fcitx_5_on_Wayland)) |
+| Linux (Wayland) | open-flowtype is the input method; the suggestion appears in a small panel at the cursor | None beyond running it; the screenshot portal only for OCR | Needs a compositor with the Wayland input-method protocol (niri, sway, Hyprland, river, labwc and others); KDE Plasma, GNOME and X11 come later. Cannot run alongside fcitx5 or IBus. Apps must support `text-input-v3`; Chromium and Electron need `--enable-wayland-ime` ([fcitx5 Wayland guide](https://fcitx-im.org/wiki/Using_Fcitx_5_on_Wayland)) |
 | macOS | Faint text drawn at the cursor | Accessibility; Screen Recording only for OCR | Paused while another app holds Secure Input (open-flowtype names the app when macOS reveals it). Browsers that hide the cursor position get a card above the field |
 | Windows | Faint text drawn at the cursor | None beyond install | Cannot reach apps running as administrator unless open-flowtype also runs elevated |
 | Android | In open-flowtype's own keyboard | Enable the keyboard | The user must switch to this keyboard. Keyboards cannot read the rest of the screen, so replies use the field text, the selection and, optionally, the clipboard |
