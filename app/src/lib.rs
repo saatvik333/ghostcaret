@@ -1,24 +1,20 @@
 //! Ghostcaret: the Tauri app that hosts the engine.
 //!
-//! On desktop it lives in the tray, runs the OS backend and the controller
-//! ([`runtime`]), and opens the settings window on demand; the window and its
-//! web view are destroyed when closed. On mobile the keyboard hosts the
-//! engine, and this app is the settings and setup UI.
+//! On desktop it lives in the tray, runs the OS backend and the engine's
+//! runtime ([`oft_runtime`], with this app as its [`host`]), and opens the
+//! settings window on demand; the window and its web view are destroyed when
+//! closed. On mobile the keyboard hosts the engine, and this app is the
+//! settings and setup UI.
 
 mod commands;
+#[cfg(desktop)]
+mod host;
 mod keychain;
 mod keys;
 mod memory;
-#[cfg(desktop)]
-mod models;
-mod pause;
 mod paths;
-#[cfg(desktop)]
-mod runtime;
 mod settings_store;
 mod setup;
-mod stats;
-mod style;
 #[cfg(desktop)]
 mod tray;
 
@@ -26,24 +22,26 @@ use std::sync::{Arc, Mutex};
 
 use oft_cloud::SentLog;
 use oft_engine::settings::Settings;
+use oft_store::stats::Stats;
+use oft_store::style::StyleMemory;
 use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
 
 use settings_store::SettingsStore;
 use setup::{SetupStore, Step};
-use stats::Stats;
 
 /// State shared by the commands, the tray and the runtime handle.
 pub struct AppState {
-    settings: Mutex<Settings>,
+    /// The saved settings; the runtime reads them through its host.
+    settings: Arc<Mutex<Settings>>,
     settings_error: Mutex<Option<String>>,
     store: SettingsStore,
     setup: SetupStore,
     setup_step: Mutex<Step>,
     stats: Option<Stats>,
-    style: Option<style::StyleMemory>,
+    style: Option<StyleMemory>,
     sent_log: SentLog,
     #[cfg(desktop)]
-    runtime: runtime::Runtime,
+    runtime: oft_runtime::Runtime,
     #[cfg(feature = "local")]
     models: oft_local::store::ModelStore,
     #[cfg(feature = "local")]
@@ -106,7 +104,7 @@ pub fn open_main(app: &AppHandle) {
 /// Redraws the tray from the current status and settings error.
 #[cfg(desktop)]
 fn refresh_tray(app: &AppHandle, state: &AppState) {
-    let status = lock(&state.runtime.shared.status).clone();
+    let status = state.runtime.status();
     let error = state.settings_error();
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || tray::update(&handle, &status, error.as_deref()));
@@ -129,26 +127,34 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         log::warn!("{e}");
     }
     let stats = Stats::open(paths::data_dir()).map_err(|e| log::warn!("usage stats unavailable: {e}")).ok();
-    let style = style::StyleMemory::open(paths::data_dir()).map_err(|e| log::warn!("style memory unavailable: {e}")).ok();
+    let style = StyleMemory::open(paths::data_dir()).map_err(|e| log::warn!("style memory unavailable: {e}")).ok();
     let sent_log = SentLog::default();
     let setup = SetupStore::new(paths::config_dir());
     let step = setup.load();
+    let settings = Arc::new(Mutex::new(loaded.settings));
 
     #[cfg(desktop)]
     let runtime = {
-        let handle = app.handle().clone();
-        let notify: runtime::Notify = Box::new(move |status| {
-            commands::emit(&handle, "status", status.clone());
-            if let Some(state) = handle.try_state::<Arc<AppState>>() {
-                refresh_tray(&handle, &state);
-            }
+        let host = Arc::new(host::DesktopHost::new(app.handle().clone(), settings.clone()));
+        let config = oft_runtime::Config {
+            stats: stats.clone(),
+            style: style.clone(),
+            sent_log: sent_log.clone(),
+            #[cfg(feature = "local")]
+            models_dir: paths::models_dir(),
+            #[cfg(feature = "local")]
+            load_options: oft_local::LoadOptions::default(),
+        };
+        let runtime = oft_runtime::start(host, config, |events| oft_platform::start(events).map_err(|e| e.to_string()))?;
+        let commands = runtime.commands();
+        memory::watch_pressure(move || {
+            let _ = commands.send(oft_runtime::Command::MemoryPressure);
         });
-        let stores = runtime::Stores { stats: stats.clone(), style: style.clone(), log: sent_log.clone() };
-        runtime::start(loaded.settings.clone(), stores, notify)
+        runtime
     };
 
     let state = Arc::new(AppState {
-        settings: Mutex::new(loaded.settings),
+        settings,
         settings_error: Mutex::new(loaded.error),
         store,
         setup,
@@ -167,7 +173,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     #[cfg(desktop)]
     {
-        let status = lock(&state.runtime.shared.status).clone();
+        let status = state.runtime.status();
         tray::create(app.handle(), &status, state.settings_error().as_deref())?;
         if step != Step::Done || state.settings_error().is_some() {
             open_main(app.handle());
@@ -227,7 +233,7 @@ pub fn run() {
         #[cfg(desktop)]
         RunEvent::Exit => {
             if let Some(state) = app.try_state::<Arc<AppState>>() {
-                state.runtime.send(runtime::Command::Quit);
+                state.runtime.send(oft_runtime::Command::Quit);
             }
         }
         _ => {

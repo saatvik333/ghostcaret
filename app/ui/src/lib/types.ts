@@ -125,7 +125,7 @@ export type SetupStep = 'welcome' | 'permissions' | 'model' | 'practice' | 'done
 
 export type StatusKind =
   | 'starting' | 'active' | 'paused' | 'off_in_app' | 'no_model' | 'cloud_unavailable'
-  | 'permission_needed' | 'secure_input' | 'unavailable' | 'loading' | 'downloading' | 'error';
+  | 'permission_needed' | 'secure_input' | 'unavailable' | 'settings_invalid' | 'loading' | 'downloading' | 'error';
 
 export interface PauseInfo {
   app: string | null;
@@ -136,6 +136,8 @@ export interface PauseInfo {
 export interface StatusView {
   kind: StatusKind;
   text: string;
+  /** The reason or subject in `text`, without its prefix. */
+  detail: string | null;
   pauses: PauseInfo[];
   app: { id: string; name: string } | null;
   local_model_loaded: boolean;

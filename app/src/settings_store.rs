@@ -52,7 +52,7 @@ impl SettingsStore {
                 };
                 Loaded {
                     settings: Settings::default(),
-                    error: Some(format!("{}. Using default settings; {note}.", describe(&err, &text))),
+                    error: Some(format!("{}. Using default settings; {note}.", capitalized(&err.to_string()))),
                 }
             }
         }
@@ -73,61 +73,12 @@ pub enum SaveError {
     Io(io::Error),
 }
 
-/// A message for a rejected file that names the setting and line but never
-/// echoes the value: TOML errors quote the offending text, and a pasted key
-/// in the wrong place must not end up in the tray.
-fn describe(err: &SettingsError, text: &str) -> String {
-    match err {
-        SettingsError::Parse(_) => {
-            let span = toml::from_str::<Settings>(text).err().and_then(|e| e.span());
-            match span.map(|s| locate(text, s.start)) {
-                Some((line, Some(key))) => format!("Setting `{key}` on line {line} of settings.toml is not valid"),
-                Some((line, None)) => format!("Line {line} of settings.toml is not valid TOML"),
-                None => "settings.toml is not valid TOML".to_owned(),
-            }
-        }
-        SettingsError::TooNew(_) | SettingsError::Invalid { .. } => {
-            let mut s = err.to_string();
-            if let Some(first) = s.get_mut(..1) {
-                first.make_ascii_uppercase();
-            }
-            s
-        }
+fn capitalized(text: &str) -> String {
+    let mut s = text.to_owned();
+    if let Some(first) = s.get_mut(..1) {
+        first.make_ascii_uppercase();
     }
-}
-
-/// The 1-based line of `offset` and the dotted key defined there, if any.
-fn locate(text: &str, offset: usize) -> (usize, Option<String>) {
-    let offset = offset.min(text.len());
-    let line_start = text[..offset].rfind('\n').map_or(0, |i| i + 1);
-    let line_no = text[..line_start].matches('\n').count() + 1;
-    let line = text[line_start..].lines().next().unwrap_or("").trim();
-    let table = text[..line_start]
-        .lines()
-        .rev()
-        .map(str::trim)
-        .find_map(header)
-        .filter(|_| header(line).is_none());
-    let key = match header(line) {
-        Some(h) => Some(h.to_owned()),
-        None => line.split_once('=').map(|(k, _)| clean_key(k)).filter(|k| !k.is_empty()),
-    };
-    let key = match (table, key) {
-        (Some(t), Some(k)) => Some(format!("{t}.{k}")),
-        (None, k) => k,
-        (Some(t), None) => Some(t.to_owned()),
-    };
-    (line_no, key)
-}
-
-fn header(line: &str) -> Option<&str> {
-    let inner = line.strip_prefix("[[").and_then(|l| l.split_once("]]")).map(|(h, _)| h);
-    let inner = inner.or_else(|| line.strip_prefix('[').and_then(|l| l.split_once(']')).map(|(h, _)| h))?;
-    Some(inner.trim())
-}
-
-fn clean_key(raw: &str) -> String {
-    raw.split('.').map(|part| part.trim().trim_matches(['"', '\''])).collect::<Vec<_>>().join(".")
+    s
 }
 
 /// Writes `bytes` to `path` so readers see either the old or the new file.
@@ -237,13 +188,5 @@ mod tests {
         let error = SettingsStore::new(&dir).load().error.unwrap();
         assert!(error.contains("`boldness`"), "{error}");
         assert!(!error.contains('4'), "{error}");
-    }
-
-    #[test]
-    fn locate_reads_tables_and_quoted_keys() {
-        let text = "a = 1\n[apps.\"org.telegram.desktop\"]\n\"length\" = 3\n";
-        let at = text.find("3").unwrap();
-        assert_eq!(locate(text, at), (3, Some("apps.\"org.telegram.desktop\".length".to_owned())));
-        assert_eq!(locate(text, 0), (1, Some("a".to_owned())));
     }
 }

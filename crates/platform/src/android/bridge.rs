@@ -8,6 +8,7 @@ use jni::sys::jvalue;
 use jni::{Env, JavaVM, jni_sig, jni_str};
 use oft_engine::io::{Backend, Bindings, CardView, Conversation, FieldId, InsertRequest, Overlay, Replace, SuggestionView};
 use oft_engine::settings::{Appearance, GhostStyle};
+use oft_runtime::{StatusKind, StatusView};
 
 use super::text::{self, Slot};
 
@@ -26,6 +27,28 @@ pub(crate) enum StripStatus {
 }
 
 impl StripStatus {
+    /// The strip line for the runtime's status; Kotlin words it from the
+    /// code and the detail.
+    pub(crate) fn of(status: &StatusView) -> StripStatus {
+        let detail = || status.detail.clone().unwrap_or_default();
+        match status.kind {
+            StatusKind::Paused => StripStatus::Paused,
+            StatusKind::OffInApp => StripStatus::OffInApp,
+            StatusKind::NoModel if status.detail.is_none() => StripStatus::NoModel,
+            // The chosen model is missing or failed to build or load.
+            StatusKind::NoModel | StatusKind::Error => StripStatus::LoadFailed(detail()),
+            StatusKind::CloudUnavailable => StripStatus::CloudUnavailable(detail()),
+            StatusKind::Loading | StatusKind::Downloading => StripStatus::Loading,
+            StatusKind::SettingsInvalid => StripStatus::SettingsInvalid(detail()),
+            // The keyboard reports no backend status of its own.
+            StatusKind::Starting
+            | StatusKind::Active
+            | StatusKind::PermissionNeeded
+            | StatusKind::SecureInput
+            | StatusKind::Unavailable => StripStatus::Clear,
+        }
+    }
+
     fn code(&self) -> (i32, Option<&str>) {
         match self {
             StripStatus::Clear => (0, None),
@@ -100,8 +123,9 @@ impl Bridge {
     }
 
     /// The API key saved for a provider, decrypted by the keyboard from the
-    /// Android Keystore. Blocks briefly; called from the model loader thread.
-    pub(crate) fn api_key(&self, provider: &str) -> Option<String> {
+    /// Android Keystore. Blocks briefly; called from the thread that builds
+    /// the provider.
+    pub(crate) fn api_key(&self, provider: &str) -> Result<Option<String>, String> {
         let result = self.vm.attach_current_thread(|env| -> jni::errors::Result<Option<String>> {
             let id = JString::from_str(env, provider)?;
             // SAFETY: `api_key` was looked up on the bridge's class with the
@@ -116,9 +140,9 @@ impl Bridge {
             let key = env.cast_local::<JString>(key)?;
             Ok(Some(key.try_to_string(env)?))
         });
-        result.unwrap_or_else(|e| {
+        result.map_err(|e| {
             log::error!("reading the API key for provider {provider} failed: {e}");
-            None
+            format!("cannot read the saved key: {e}")
         })
     }
 

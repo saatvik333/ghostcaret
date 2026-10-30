@@ -1,170 +1,30 @@
-//! The desktop runtime: one controller thread that owns the engine's state
-//! machine, plus workers for completions, reply & rewrite generation, conversation
-//! reads and model loading.
-//!
-//! The controller thread sleeps in `Select::ready_deadline` until a backend
-//! event, a worker result, an app command or the earliest timer deadline
-//! arrives. Nothing polls; with no timers armed it blocks indefinitely.
+//! The runtime thread: owns the controller, executes its outputs against the
+//! backend and the models, runs the timers and keeps the status line.
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
-use std::thread;
+use std::thread::JoinHandle;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use crossbeam_channel::{Receiver, Select, Sender, unbounded};
-use oft_cloud::SentLog;
-use oft_engine::complete::{CancelToken, CompleteError, Completer, Completion, CompletionRequest, GenerateRequest, Generator};
+use crossbeam_channel::{Receiver, Select, Sender, TryRecvError};
+use oft_engine::complete::{CancelToken, Caps, CompleteError};
 use oft_engine::controller::{Controller, Feature, GenerateUpdate, Input, Output, Status, TimerId};
-use oft_engine::io::{AppInfo, Backend, BackendStatus, Event, FieldId, Overlay};
+use oft_engine::io::{AppInfo, Backend, BackendStatus, Event, FieldId, FieldKind, Overlay};
 use oft_engine::settings::Settings;
-use oft_engine::stop::Stopper;
-use serde::Serialize;
+use oft_store::stats::Stats;
+use oft_store::style::StyleMemory;
 
 use crate::models::{Hub, HubEvent, LocalState};
-use crate::pause::{PauseFor, PauseInfo, Pauses, Scope, local_clock, local_day, now_ms};
-use crate::stats::Stats;
-use crate::style::StyleMemory;
+use crate::pause::{PauseInfo, Pauses, local_clock, local_day, now_ms};
+use crate::status::{AppRef, StatusKind, StatusView, TIMINGS_KEPT, Timing};
+use crate::workers::{GenJob, Job, WorkerMsg, Workers, conversation_reader};
+use crate::{Command, Host};
 
-/// Commands from the app (tray, settings UI) to the controller thread.
+/// State hosts read without going through the runtime thread.
 #[derive(Debug)]
-pub enum Command {
-    /// Saved settings changed.
-    Settings(Box<Settings>),
-    /// A key was saved or removed, or models were downloaded or deleted:
-    /// rebuild the model slots.
-    ModelsChanged,
-    Pause(Scope, PauseFor),
-    /// Resume one app, or everything with `None`.
-    Resume(Option<String>),
-    /// Download progress from the model manager, 0–1; `None` when done.
-    #[cfg_attr(not(feature = "local"), allow(dead_code))]
-    Download(Option<f32>),
-    MemoryPressure,
-    Quit,
-}
-
-/// Timings of one autocomplete request, in microseconds.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
-pub struct Timing {
-    pub id: u64,
-    /// Unix milliseconds when the result arrived.
-    pub at_ms: u64,
-    /// Last keystroke to the request being issued (mostly the pause).
-    pub wait_us: u64,
-    /// The controller step that issued it: context, secret filter, prompt.
-    pub build_us: u64,
-    /// Waiting for the completion worker.
-    pub queue_us: u64,
-    /// Model time.
-    pub decode_us: u64,
-    /// Handing the suggestion to the backend, which renders it.
-    pub render_us: u64,
-    /// Last keystroke to the suggestion being handed over.
-    pub total_us: u64,
-    pub shown: bool,
-    pub cancelled: bool,
-}
-
-const TIMINGS_KEPT: usize = 64;
-
-/// What the tray and the settings UI show.
-#[derive(Clone, Debug, PartialEq, Serialize)]
-pub struct StatusView {
-    pub kind: StatusKind,
-    /// One line for the tray.
-    pub text: String,
-    pub pauses: Vec<PauseInfo>,
-    /// The app that last had a text field focused.
-    pub app: Option<AppRef>,
-    pub local_model_loaded: bool,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum StatusKind {
-    Starting,
-    Active,
-    Paused,
-    OffInApp,
-    NoModel,
-    CloudUnavailable,
-    PermissionNeeded,
-    SecureInput,
-    Unavailable,
-    Loading,
-    Downloading,
-    Error,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct AppRef {
-    pub id: String,
-    pub name: String,
-}
-
-/// State the app reads without going through the controller thread.
-#[derive(Debug)]
-pub struct Shared {
+pub(crate) struct Shared {
     pub status: Mutex<StatusView>,
     pub timings: Mutex<VecDeque<Timing>>,
-}
-
-/// Handle to the running runtime.
-#[derive(Clone, Debug)]
-pub struct Runtime {
-    tx: Sender<Command>,
-    pub shared: Arc<Shared>,
-}
-
-impl Runtime {
-    pub fn send(&self, command: Command) {
-        let _ = self.tx.send(command);
-    }
-}
-
-pub type Notify = Box<dyn Fn(&StatusView) + Send>;
-
-/// Starts the OS backend and the controller thread.
-pub fn start(settings: Settings, stores: Stores, notify: Notify) -> Runtime {
-    let (tx, rx) = unbounded();
-    let shared = Arc::new(Shared {
-        status: Mutex::new(StatusView {
-            kind: StatusKind::Starting,
-            text: "Starting".into(),
-            pauses: Vec::new(),
-            app: None,
-            local_model_loaded: false,
-        }),
-        timings: Mutex::new(VecDeque::with_capacity(TIMINGS_KEPT)),
-    });
-    let runtime = Runtime { tx: tx.clone(), shared: shared.clone() };
-    {
-        let tx = tx.clone();
-        crate::memory::watch_pressure(move || {
-            let _ = tx.send(Command::MemoryPressure);
-        });
-    }
-    thread::Builder::new()
-        .name("oft-controller".into())
-        .spawn(move || {
-            let (events_tx, events_rx) = unbounded();
-            let (backend, backend_error) = match oft_platform::start(events_tx.clone()) {
-                Ok(b) => (Some(b), None),
-                Err(e) => {
-                    log::warn!("platform backend unavailable: {e}");
-                    (None, Some(e.to_string()))
-                }
-            };
-            let mut core = Core::new(settings, backend, stores, shared, notify);
-            if let Some(e) = backend_error {
-                core.backend_status = Some(BackendStatus::Unavailable(e));
-            }
-            // Kept alive so the event channel never reports disconnection.
-            let _events_tx = events_tx;
-            core.run(&events_rx, &rx);
-        })
-        .expect("controller thread starts");
-    runtime
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -181,23 +41,18 @@ const CLOUD_RETRY: Duration = Duration::from_secs(5 * 60);
 
 const DAILY_CAP: &str = "daily request cap reached";
 
-/// Results from the worker threads.
-enum WorkerMsg {
-    Completed { id: u64, result: Result<Completion, CompleteError>, queue: Duration, decode: Duration },
-    Input(Input),
-}
+/// What `Settings::unload_after_minutes` counts; milliseconds in tests, so
+/// they can watch an idle unload happen.
+const UNLOAD_UNIT: Duration = if cfg!(test) { Duration::from_millis(20) } else { Duration::from_secs(60) };
 
-enum Job {
-    Complete { request: CompletionRequest, model: Arc<dyn Completer>, cancel: CancelToken, queued: Instant },
-    Prefill { request: CompletionRequest, model: Arc<dyn Completer>, cancel: CancelToken },
-}
-
-struct GenJob {
-    request: GenerateRequest,
-    model: Arc<dyn Generator>,
+/// A request a worker holds.
+struct Running {
     cancel: CancelToken,
+    /// It runs on the local model.
+    local: bool,
 }
 
+/// Stage times of a completion in flight.
 #[derive(Clone, Copy)]
 struct Pending {
     key_at: Instant,
@@ -214,24 +69,32 @@ struct CloudCount {
     count: u32,
 }
 
-struct Core {
+/// A status line: its kind, its text and the text's detail.
+type Line = (StatusKind, String, Option<String>);
+
+pub(crate) struct Core {
     controller: Controller,
+    host: Arc<dyn Host>,
     backend: Option<Arc<dyn Backend>>,
+    backend_status: Option<BackendStatus>,
     stats: Option<Stats>,
     style: Option<StyleMemory>,
     hub: Hub,
-    hub_rx: Receiver<HubEvent>,
-    saved: Settings,
+    settings: Settings,
+    /// Why [`Host::settings`] failed; the runtime then runs on defaults.
+    settings_error: Option<String>,
     pauses: Pauses,
     timers: Vec<(Timer, Instant)>,
     jobs: Sender<Job>,
     gens: Sender<GenJob>,
-    conversations: Sender<FieldId>,
+    workers: [JoinHandle<()>; 2],
+    /// Started on the first conversation read.
+    conversations: Option<Sender<FieldId>>,
     worker_tx: Sender<WorkerMsg>,
     worker_rx: Receiver<WorkerMsg>,
-    completions: HashMap<u64, CancelToken>,
-    prefill: Option<CancelToken>,
-    generations: HashMap<u64, CancelToken>,
+    completions: HashMap<u64, Running>,
+    prefill: Option<(u64, Running)>,
+    generations: HashMap<u64, Running>,
     /// Inputs produced while executing outputs, fed after the current batch.
     queued: VecDeque<Input>,
     feeding: bool,
@@ -241,46 +104,58 @@ struct Core {
     pending: HashMap<u64, Pending>,
     /// The completion whose result is being handled, to time its overlay.
     finishing: Option<(u64, Pending)>,
-    caps_sent: [Option<oft_engine::complete::Caps>; 2],
+    caps_sent: [Option<Caps>; 2],
+    /// The app that last had a text field focused.
     app: Option<AppInfo>,
+    /// The focused field's kind; `None` while no field has focus.
+    focused: Option<FieldKind>,
     controller_status: Status,
-    backend_status: Option<BackendStatus>,
     download: Option<f32>,
     cloud: CloudCount,
     shared: Arc<Shared>,
-    notify: Notify,
-}
-
-/// The stores the runtime writes to.
-#[derive(Debug)]
-pub struct Stores {
-    pub stats: Option<Stats>,
-    pub style: Option<StyleMemory>,
-    pub log: SentLog,
 }
 
 impl Core {
-    fn new(settings: Settings, backend: Option<Arc<dyn Backend>>, stores: Stores, shared: Arc<Shared>, notify: Notify) -> Core {
-        let Stores { stats, style, log } = stores;
-        let (hub, hub_rx) = Hub::new(log);
-        let (worker_tx, worker_rx) = unbounded();
-        let jobs = spawn_completion_worker(worker_tx.clone());
-        let gens = spawn_generation_worker(worker_tx.clone());
-        let conversations = spawn_conversation_reader(backend.clone(), worker_tx.clone());
-        let today = stats.as_ref().and_then(|s| s.cloud_requests_today().ok()).unwrap_or(0);
+    pub(crate) fn new(
+        host: Arc<dyn Host>,
+        backend: Result<Arc<dyn Backend>, String>,
+        stats: Option<Stats>,
+        style: Option<StyleMemory>,
+        hub: Hub,
+        workers: Workers,
+        shared: Arc<Shared>,
+    ) -> Core {
+        let (settings, settings_error) = read_settings(&*host);
+        let (backend, backend_status) = match backend {
+            Ok(b) => (Some(b), None),
+            Err(e) => {
+                log::warn!("platform backend unavailable: {e}");
+                (None, Some(BackendStatus::Unavailable(e)))
+            }
+        };
+        let today = stats.as_ref().map_or(0, |s| {
+            s.cloud_requests_today().unwrap_or_else(|e| {
+                log::warn!("cannot read today's cloud request count: {e}");
+                0
+            })
+        });
+        let Workers { jobs, gens, threads, tx: worker_tx, rx: worker_rx } = workers;
         let mut core = Core {
             controller: Controller::new(settings.clone()),
+            host,
             backend,
+            backend_status,
             stats,
             style,
             hub,
-            hub_rx,
-            saved: settings,
+            settings,
+            settings_error,
             pauses: Pauses::default(),
             timers: Vec::new(),
             jobs,
             gens,
-            conversations,
+            workers: threads,
+            conversations: None,
             worker_tx,
             worker_rx,
             completions: HashMap::new(),
@@ -294,29 +169,28 @@ impl Core {
             finishing: None,
             caps_sent: [None, None],
             app: None,
+            focused: None,
             controller_status: Status::Active,
-            backend_status: None,
             download: None,
             cloud: CloudCount { day: local_day(now_ms()), count: today },
             shared,
-            notify,
         };
         // The first Settings input makes the controller send bindings, the
-        // active state and its status.
-        core.feed(Input::Settings(Box::new(core.saved.clone())));
-        core.hub.apply(&core.saved);
+        // appearance, the active state and its status.
+        core.feed(Input::Settings(Box::new(core.settings.clone())));
+        core.hub.apply(&core.settings);
         core.send_caps();
         core
     }
 
-    fn run(&mut self, events: &Receiver<Event>, commands: &Receiver<Command>) {
+    /// Runs until [`Command::Quit`], then stops the workers.
+    pub(crate) fn run(mut self, events: &Receiver<Event>, commands: &Receiver<Command>, hub_rx: &Receiver<HubEvent>) {
         let worker_rx = self.worker_rx.clone();
-        let hub_rx = self.hub_rx.clone();
         let mut select = Select::new();
         let i_events = select.recv(events);
         let i_commands = select.recv(commands);
         let i_workers = select.recv(&worker_rx);
-        let i_hub = select.recv(&hub_rx);
+        let i_hub = select.recv(hub_rx);
         self.publish();
         loop {
             let ready = match self.next_deadline() {
@@ -331,12 +205,12 @@ impl Core {
                     }
                 }
                 Some(i) if i == i_commands => match commands.try_recv() {
-                    Ok(Command::Quit) | Err(crossbeam_channel::TryRecvError::Disconnected) => break,
+                    Ok(Command::Quit) | Err(TryRecvError::Disconnected) => break,
                     Ok(command) => {
                         self.on_command(command);
                         self.dirty = true;
                     }
-                    Err(crossbeam_channel::TryRecvError::Empty) => {}
+                    Err(TryRecvError::Empty) => {}
                 },
                 Some(i) if i == i_workers => {
                     if let Ok(msg) = worker_rx.try_recv() {
@@ -347,6 +221,10 @@ impl Core {
                     if let Ok(event) = hub_rx.try_recv()
                         && self.hub.on_event(event)
                     {
+                        // A model loaded for a focus but never used still unloads.
+                        if self.hub.has_local_loaded() && !self.timers.iter().any(|(t, _)| *t == Timer::Unload) {
+                            self.arm_unload();
+                        }
                         self.send_caps();
                         self.dirty = true;
                     }
@@ -362,10 +240,26 @@ impl Core {
                 self.publish();
             }
         }
+        self.shutdown();
+    }
+
+    /// Cancels what the workers hold, deactivates the backend, unloads the
+    /// local model and waits for the workers. A model load in progress
+    /// cannot be interrupted; its thread exits when it finishes.
+    fn shutdown(self) {
+        let running = self.completions.values().chain(self.generations.values()).chain(self.prefill.as_ref().map(|(_, r)| r));
+        for r in running {
+            r.cancel.cancel();
+        }
         if let Some(b) = &self.backend {
             b.set_active(false);
         }
-        self.hub.unload();
+        let Core { mut hub, jobs, gens, workers, conversations, .. } = self;
+        hub.unload();
+        drop((jobs, gens, conversations));
+        for worker in workers {
+            let _ = worker.join();
+        }
     }
 
     fn on_event(&mut self, event: Event) {
@@ -378,11 +272,19 @@ impl Core {
                     }
                     self.app = Some(snapshot.app.clone());
                 }
-                self.hub.focus();
+                self.focused = Some(snapshot.kind);
+                // Nothing is predicted in these fields: no model needs to be ready.
+                if !snapshot.kind.is_secure_or_structured() {
+                    self.hub.focus();
+                }
                 self.dirty = true;
                 self.load_style(snapshot.app.id.clone());
             }
-            Event::Changed(_) => self.last_key = Instant::now(),
+            Event::Changed(snapshot) => {
+                self.last_key = Instant::now();
+                self.focused = Some(snapshot.kind);
+            }
+            Event::Blur => self.focused = None,
             Event::Status(s) => {
                 self.backend_status = Some(s.clone());
                 self.dirty = true;
@@ -394,15 +296,17 @@ impl Core {
 
     fn on_command(&mut self, command: Command) {
         match command {
-            Command::Settings(settings) => {
-                let models_changed = settings.autocomplete_model != self.saved.autocomplete_model
-                    || settings.draft_model != self.saved.draft_model
-                    || settings.providers != self.saved.providers;
-                self.saved = *settings;
+            Command::SettingsChanged => {
+                let (settings, error) = read_settings(&*self.host);
+                self.settings_error = error;
+                let models_changed = settings.autocomplete_model != self.settings.autocomplete_model
+                    || settings.draft_model != self.settings.draft_model
+                    || settings.providers != self.settings.providers;
+                self.settings = settings;
                 if models_changed {
                     self.rebuild_models();
                 }
-                self.feed(Input::Settings(Box::new(self.saved.clone())));
+                self.feed(Input::Settings(Box::new(self.settings.clone())));
             }
             Command::ModelsChanged => self.rebuild_models(),
             Command::Pause(scope, length) => {
@@ -423,7 +327,15 @@ impl Core {
             Command::MemoryPressure => {
                 if self.hub.has_local_loaded() {
                     log::info!("memory pressure: unloading the local model");
+                    // Its lock frees once the requests on it see the cancel.
+                    let running =
+                        self.completions.values().chain(self.generations.values()).chain(self.prefill.as_ref().map(|(_, r)| r));
+                    for r in running.filter(|r| r.local) {
+                        r.cancel.cancel();
+                    }
+                    self.stop_timer(Timer::Unload);
                     self.hub.unload();
+                    self.send_caps();
                 }
             }
             Command::Quit => unreachable!("handled by the loop"),
@@ -432,7 +344,10 @@ impl Core {
 
     fn rebuild_models(&mut self) {
         self.stop_timer(Timer::CloudRetry);
-        self.hub.apply(&self.saved);
+        self.hub.apply(&self.settings);
+        if self.focused.is_some_and(|kind| !kind.is_secure_or_structured()) {
+            self.hub.focus();
+        }
         self.send_caps();
     }
 
@@ -446,13 +361,14 @@ impl Core {
     }
 
     /// Whether the daily cloud cap allows one more request now. Counts it
-    /// when it does.
+    /// when it does, in memory and in the stats, which keep the count across
+    /// restarts.
     fn cloud_allowed(&mut self) -> bool {
         let today = local_day(now_ms());
         if self.cloud.day != today {
             self.cloud = CloudCount { day: today, count: 0 };
         }
-        if self.saved.daily_request_cap.is_some_and(|cap| self.cloud.count >= cap) {
+        if self.settings.daily_request_cap.is_some_and(|cap| self.cloud.count >= cap) {
             return false;
         }
         self.cloud.count += 1;
@@ -463,7 +379,7 @@ impl Core {
     }
 
     fn cap_reached(&self) -> bool {
-        self.cloud.day == local_day(now_ms()) && self.saved.daily_request_cap.is_some_and(|cap| self.cloud.count >= cap)
+        self.cloud.day == local_day(now_ms()) && self.settings.daily_request_cap.is_some_and(|cap| self.cloud.count >= cap)
     }
 
     fn on_worker(&mut self, msg: WorkerMsg) {
@@ -531,26 +447,35 @@ impl Core {
                     b.set_bindings(bindings);
                 }
             }
+            Output::Appearance(appearance) => {
+                if let Some(b) = backend {
+                    b.set_appearance(appearance);
+                }
+            }
             Output::Active(active) => {
                 if let Some(b) = backend {
                     b.set_active(active);
                 }
             }
             Output::Complete(request) => {
-                if let Some(p) = self.prefill.take() {
-                    p.cancel();
+                if let Some((_, p)) = self.prefill.take() {
+                    p.cancel.cancel();
                 }
                 let id = request.id;
                 match self.cloud_gate(Feature::Autocomplete).and_then(|()| self.hub.completer(Feature::Autocomplete)) {
                     Ok(model) => {
                         let cancel = CancelToken::new();
-                        self.completions.insert(id, cancel.clone());
-                        let now = Instant::now();
-                        self.pending.insert(
-                            id,
-                            Pending { key_at: self.last_key, issued: now, build, queue: Duration::ZERO, decode: Duration::ZERO },
-                        );
-                        let _ = self.jobs.send(Job::Complete { request, model, cancel, queued: now });
+                        let issued = Instant::now();
+                        let job = Job::Complete { request, model, cancel: cancel.clone(), queued: issued };
+                        if self.jobs.send(job).is_err() {
+                            self.queued.push_back(Input::Completed { id, result: Err(stopped()) });
+                            return;
+                        }
+                        let local = self.hub.is_local(Feature::Autocomplete);
+                        self.completions.insert(id, Running { cancel, local });
+                        let pending =
+                            Pending { key_at: self.last_key, issued, build, queue: Duration::ZERO, decode: Duration::ZERO };
+                        self.pending.insert(id, pending);
                         self.touch_local(Feature::Autocomplete);
                     }
                     Err(e) => self.queued.push_back(Input::Completed { id, result: Err(e) }),
@@ -558,17 +483,20 @@ impl Core {
             }
             Output::Prefill(request) => {
                 if let Ok(model) = self.hub.completer(Feature::Autocomplete) {
-                    let cancel = CancelToken::new();
-                    if let Some(old) = self.prefill.replace(cancel.clone()) {
-                        old.cancel();
+                    let (id, cancel) = (request.id, CancelToken::new());
+                    let local = self.hub.is_local(Feature::Autocomplete);
+                    if let Some((_, old)) = self.prefill.replace((id, Running { cancel: cancel.clone(), local })) {
+                        old.cancel.cancel();
                     }
                     let _ = self.jobs.send(Job::Prefill { request, model, cancel });
                     self.touch_local(Feature::Autocomplete);
                 }
             }
             Output::Cancel(id) => {
-                if let Some(c) = self.completions.remove(&id) {
-                    c.cancel();
+                if let Some(r) = self.completions.remove(&id) {
+                    r.cancel.cancel();
+                } else if let Some((_, r)) = self.prefill.take_if(|(p, _)| *p == id) {
+                    r.cancel.cancel();
                 }
             }
             Output::Generate(request) => {
@@ -576,24 +504,27 @@ impl Core {
                 match self.cloud_gate(Feature::FlowDraft).and_then(|()| self.hub.generator(Feature::FlowDraft)) {
                     Ok(model) => {
                         let cancel = CancelToken::new();
-                        self.generations.insert(id, cancel.clone());
-                        let _ = self.gens.send(GenJob { request, model, cancel });
+                        if self.gens.send(GenJob { request, model, cancel: cancel.clone() }).is_err() {
+                            self.queued.push_back(Input::Generated { id, update: GenerateUpdate::Done(Err(stopped())) });
+                            return;
+                        }
+                        let local = self.hub.is_local(Feature::FlowDraft);
+                        self.generations.insert(id, Running { cancel, local });
                         self.touch_local(Feature::FlowDraft);
                     }
                     Err(e) => self.queued.push_back(Input::Generated { id, update: GenerateUpdate::Done(Err(e)) }),
                 }
             }
             Output::CancelGenerate(id) => {
-                if let Some(c) = self.generations.remove(&id) {
-                    c.cancel();
+                if let Some(r) = self.generations.remove(&id) {
+                    r.cancel.cancel();
                 }
             }
             Output::StartTimer { id, after } => self.start_timer(Timer::Controller(id), Instant::now() + after),
             Output::StopTimer(id) => self.stop_timer(Timer::Controller(id)),
             Output::ReadConversation(field) => {
-                if backend.is_some() {
-                    let _ = self.conversations.send(field);
-                } else {
+                let sent = self.conversations().is_some_and(|tx| tx.send(field).is_ok());
+                if !sent {
                     self.queued.push_back(Input::Conversation { field, conversation: None });
                 }
             }
@@ -609,13 +540,8 @@ impl Core {
                 self.controller_status = status;
                 self.dirty = true;
             }
-            Output::Appearance(appearance) => {
-                if let Some(b) = backend {
-                    b.set_appearance(appearance);
-                }
-            }
             Output::Remember { app, text } => {
-                if !self.saved.context.style_memory {
+                if !self.settings.context.style_memory {
                     return;
                 }
                 let focused = self.app.as_ref().is_some_and(|a| a.id == app);
@@ -629,10 +555,24 @@ impl Core {
         }
     }
 
+    /// The conversation reader, started on first use; `None` without a
+    /// backend.
+    fn conversations(&mut self) -> Option<&Sender<FieldId>> {
+        if self.conversations.is_none()
+            && let Some(backend) = &self.backend
+        {
+            match conversation_reader(backend.clone(), self.worker_tx.clone()) {
+                Ok(tx) => self.conversations = Some(tx),
+                Err(e) => log::warn!("conversation reader failed to start: {e}"),
+            }
+        }
+        self.conversations.as_ref()
+    }
+
     /// Sends the focused app's style samples to the controller once the
     /// style thread has read them.
     fn load_style(&self, app: String) {
-        if !self.saved.context.style_memory {
+        if !self.settings.context.style_memory {
             return;
         }
         if let Some(style) = &self.style {
@@ -661,19 +601,25 @@ impl Core {
             return false;
         }
         self.start_timer(Timer::CloudRetry, Instant::now() + CLOUD_RETRY);
+        if self.focused.is_some_and(|kind| !kind.is_secure_or_structured()) {
+            self.hub.focus();
+        }
         self.send_caps();
         true
     }
 
     /// Restarts the idle-unload countdown when the local model serves a request.
     fn touch_local(&mut self, feature: Feature) {
-        if !self.hub.is_local(feature) {
-            return;
+        if self.hub.is_local(feature) {
+            self.arm_unload();
         }
+    }
+
+    fn arm_unload(&mut self) {
         self.stop_timer(Timer::Unload);
-        let minutes = self.saved.unload_after_minutes;
+        let minutes = self.settings.unload_after_minutes;
         if minutes > 0 {
-            self.start_timer(Timer::Unload, Instant::now() + Duration::from_secs(u64::from(minutes) * 60));
+            self.start_timer(Timer::Unload, Instant::now() + UNLOAD_UNIT * minutes);
         }
     }
 
@@ -702,6 +648,7 @@ impl Core {
             shown: render.is_some(),
             cancelled,
         };
+        log::debug!("completion {id}: {timing:?}");
         let mut ring = self.shared.timings.lock().unwrap_or_else(|e| e.into_inner());
         if ring.len() == TIMINGS_KEPT {
             ring.pop_front();
@@ -731,7 +678,15 @@ impl Core {
         for timer in due {
             match timer {
                 Timer::Controller(id) => self.feed(Input::Timer(id)),
-                Timer::Unload => self.hub.unload(),
+                Timer::Unload => {
+                    // A long generation is not idleness.
+                    if self.completions.values().chain(self.generations.values()).any(|r| r.local) {
+                        self.arm_unload();
+                    } else {
+                        self.hub.unload();
+                        self.send_caps();
+                    }
+                }
                 Timer::PauseEnd => {
                     self.pauses.expire(now);
                     self.apply_pauses();
@@ -745,7 +700,7 @@ impl Core {
         }
     }
 
-    /// Recomputes the status line and tells the tray and UI if it changed.
+    /// Recomputes the status line and tells the host if it changed.
     fn publish(&mut self) {
         let view = self.status_view();
         {
@@ -755,166 +710,110 @@ impl Core {
             }
             current.clone_from(&view);
         }
-        // The lock is released first: the tray reads the status back.
-        (self.notify)(&view);
+        // The lock is released first: hosts read the status back.
+        self.host.status(&view);
     }
 
     fn status_view(&self) -> StatusView {
         let app_id = self.app.as_ref().map(|a| a.id.as_str());
         let pauses = self.pauses.list();
-        let (kind, text) = self.status_line(app_id, &pauses);
+        let (kind, text, detail) = self.status_line(app_id, &pauses);
         StatusView {
             kind,
             text,
+            detail,
             pauses,
-            app: self.app.as_ref().map(|a| AppRef {
-                id: a.id.clone(),
-                name: if a.name.is_empty() { a.id.clone() } else { a.name.clone() },
-            }),
+            app: self
+                .app
+                .as_ref()
+                .map(|a| AppRef { id: a.id.clone(), name: if a.name.is_empty() { a.id.clone() } else { a.name.clone() } }),
             local_model_loaded: self.hub.has_local_loaded(),
         }
     }
 
-    fn status_line(&self, app_id: Option<&str>, pauses: &[PauseInfo]) -> (StatusKind, String) {
+    fn status_line(&self, app_id: Option<&str>, pauses: &[PauseInfo]) -> Line {
         let until = |p: &PauseInfo| match p.until_ms {
             Some(ms) => format!(" until {}", local_clock(ms)),
             None => " until resumed".into(),
         };
         if let Some(p) = pauses.iter().find(|p| p.app.is_none()) {
-            return (StatusKind::Paused, format!("Paused{}", until(p)));
+            return (StatusKind::Paused, format!("Paused{}", until(p)), None);
         }
         if let Some(p) = pauses.iter().find(|p| p.app.as_deref() == app_id && app_id.is_some()) {
             let name = p.name.as_deref().unwrap_or_default();
-            return (StatusKind::Paused, format!("Paused in {name}{}", until(p)));
+            return (StatusKind::Paused, format!("Paused in {name}{}", until(p)), None);
         }
-        match &self.backend_status {
-            Some(BackendStatus::PermissionMissing(what)) => {
-                return (StatusKind::PermissionNeeded, format!("Permission needed: {what}"));
-            }
-            Some(BackendStatus::SecureInput { app }) => {
-                let by = app.as_deref().map(|a| format!(" by {a}")).unwrap_or_default();
-                return (StatusKind::SecureInput, format!("Blocked by secure input{by}"));
-            }
-            Some(BackendStatus::Unavailable(why)) => return (StatusKind::Unavailable, format!("Unavailable: {why}")),
-            Some(BackendStatus::Ready) | None => {}
+        if let Some(line) = self.backend_status.as_ref().and_then(backend_line) {
+            return line;
+        }
+        if let Some(why) = &self.settings_error {
+            return with_detail(StatusKind::SettingsInvalid, "Settings problem: ", why.clone());
         }
         if let Some(f) = self.download {
-            return (StatusKind::Downloading, format!("Model downloading, {:.0}%", f * 100.0));
+            return (StatusKind::Downloading, format!("Model downloading, {:.0}%", f * 100.0), None);
         }
         match self.hub.local_state() {
-            LocalState::Loading(f) => return (StatusKind::Loading, format!("Loading model, {:.0}%", f * 100.0)),
-            LocalState::Failed(e) => return (StatusKind::Error, format!("Local model unavailable: {e}")),
+            LocalState::Loading(f) => return (StatusKind::Loading, format!("Loading model, {:.0}%", f * 100.0), None),
+            LocalState::Failed(e) => return with_detail(StatusKind::Error, "Local model unavailable: ", e),
             LocalState::Idle | LocalState::Ready => {}
         }
-        if let Some(problem) = self.hub.problem(Feature::Autocomplete) {
-            return (StatusKind::NoModel, format!("No model: {problem}"));
+        if self.hub.is_building(Feature::Autocomplete) {
+            return (StatusKind::Loading, "Connecting to the provider".into(), None);
         }
-        let uses_cloud = self.hub.took_over() || self.hub.is_cloud(Feature::Autocomplete) || self.hub.is_cloud(Feature::FlowDraft);
+        if let Some(problem) = self.hub.problem(Feature::Autocomplete) {
+            return with_detail(StatusKind::NoModel, "No model: ", problem);
+        }
+        let fallback = if self.hub.took_over() { "; the local model took over" } else { "" };
+        let uses_cloud =
+            self.hub.took_over() || self.hub.is_cloud(Feature::Autocomplete) || self.hub.is_cloud(Feature::FlowDraft);
         if uses_cloud && self.cap_reached() {
-            let fallback = if self.hub.took_over() { "; the local model took over" } else { "" };
-            return (StatusKind::CloudUnavailable, format!("Cloud unavailable: {DAILY_CAP}{fallback}"));
+            return with_detail(StatusKind::CloudUnavailable, "Cloud unavailable: ", format!("{DAILY_CAP}{fallback}"));
         }
         match &self.controller_status {
-            Status::Active => (StatusKind::Active, "Active".into()),
-            Status::Paused => (StatusKind::Paused, "Paused".into()),
+            Status::Active => (StatusKind::Active, "Active".into(), None),
+            Status::Paused => (StatusKind::Paused, "Paused".into(), None),
             Status::OffInApp(app) => {
                 let name = if app.name.is_empty() { &app.id } else { &app.name };
-                (StatusKind::OffInApp, format!("Off in {name}"))
+                (StatusKind::OffInApp, format!("Off in {name}"), Some(name.clone()))
             }
-            Status::NoModel => (StatusKind::NoModel, "No model: choose a local model or add a key".into()),
+            Status::NoModel => (StatusKind::NoModel, "No model: choose a local model or add a key".into(), None),
             Status::CloudUnavailable(why) => {
-                let fallback = if self.hub.took_over() { "; the local model took over" } else { "" };
-                (StatusKind::CloudUnavailable, format!("Cloud unavailable: {why}{fallback}"))
+                with_detail(StatusKind::CloudUnavailable, "Cloud unavailable: ", format!("{why}{fallback}"))
             }
-            Status::Backend(BackendStatus::PermissionMissing(what)) => {
-                (StatusKind::PermissionNeeded, format!("Permission needed: {what}"))
-            }
-            Status::Backend(BackendStatus::SecureInput { app }) => {
-                let by = app.as_deref().map(|a| format!(" by {a}")).unwrap_or_default();
-                (StatusKind::SecureInput, format!("Blocked by secure input{by}"))
-            }
-            Status::Backend(BackendStatus::Unavailable(why)) => (StatusKind::Unavailable, format!("Unavailable: {why}")),
-            Status::Backend(BackendStatus::Ready) => (StatusKind::Active, "Active".into()),
+            Status::Backend(status) => backend_line(status).unwrap_or_else(|| (StatusKind::Active, "Active".into(), None)),
         }
     }
 }
 
-fn spawn_completion_worker(results: Sender<WorkerMsg>) -> Sender<Job> {
-    let (tx, rx) = unbounded::<Job>();
-    thread::Builder::new()
-        .name("oft-complete".into())
-        .spawn(move || {
-            for job in rx {
-                match job {
-                    Job::Complete { request, model, cancel, queued } => {
-                        let started = Instant::now();
-                        let result = if cancel.is_cancelled() {
-                            Err(CompleteError::Cancelled)
-                        } else {
-                            let mut stop = Stopper::new(&request.stop);
-                            model.complete(&request, &mut stop, &cancel)
-                        };
-                        let msg = WorkerMsg::Completed {
-                            id: request.id,
-                            result,
-                            queue: started - queued,
-                            decode: started.elapsed(),
-                        };
-                        if results.send(msg).is_err() {
-                            return;
-                        }
-                    }
-                    Job::Prefill { request, model, cancel } => {
-                        if !cancel.is_cancelled() {
-                            model.prefill(&request, &cancel);
-                        }
-                    }
-                }
-            }
-        })
-        .expect("completion worker starts");
-    tx
-}
-
-fn spawn_generation_worker(results: Sender<WorkerMsg>) -> Sender<GenJob> {
-    let (tx, rx) = unbounded::<GenJob>();
-    thread::Builder::new()
-        .name("oft-generate".into())
-        .spawn(move || {
-            for GenJob { request, model, cancel } in rx {
-                let id = request.id;
-                let result = if cancel.is_cancelled() {
-                    Err(CompleteError::Cancelled)
-                } else {
-                    model.generate(&request, &cancel, &mut |delta| {
-                        let update = GenerateUpdate::Delta(delta.to_owned());
-                        let _ = results.send(WorkerMsg::Input(Input::Generated { id, update }));
-                    })
-                };
-                let done = WorkerMsg::Input(Input::Generated { id, update: GenerateUpdate::Done(result) });
-                if results.send(done).is_err() {
-                    return;
-                }
-            }
-        })
-        .expect("generation worker starts");
-    tx
-}
-
-fn spawn_conversation_reader(backend: Option<Arc<dyn Backend>>, results: Sender<WorkerMsg>) -> Sender<FieldId> {
-    let (tx, rx) = unbounded::<FieldId>();
-    if let Some(backend) = backend {
-        thread::Builder::new()
-            .name("oft-conversation".into())
-            .spawn(move || {
-                for field in rx {
-                    let conversation = backend.conversation(field);
-                    if results.send(WorkerMsg::Input(Input::Conversation { field, conversation })).is_err() {
-                        return;
-                    }
-                }
-            })
-            .expect("conversation reader starts");
+fn read_settings(host: &dyn Host) -> (Settings, Option<String>) {
+    match host.settings() {
+        Ok(settings) => (settings, None),
+        Err(why) => {
+            log::warn!("settings rejected, using defaults: {why}");
+            (Settings::default(), Some(why))
+        }
     }
-    tx
+}
+
+/// The line for a backend problem; `None` when it is ready.
+fn backend_line(status: &BackendStatus) -> Option<Line> {
+    match status {
+        BackendStatus::Ready => None,
+        BackendStatus::PermissionMissing(what) => {
+            Some(with_detail(StatusKind::PermissionNeeded, "Permission needed: ", what.clone()))
+        }
+        BackendStatus::SecureInput { app } => {
+            let by = app.as_deref().map(|a| format!(" by {a}")).unwrap_or_default();
+            Some((StatusKind::SecureInput, format!("Blocked by secure input{by}"), app.clone()))
+        }
+        BackendStatus::Unavailable(why) => Some(with_detail(StatusKind::Unavailable, "Unavailable: ", why.clone())),
+    }
+}
+
+fn with_detail(kind: StatusKind, prefix: &str, detail: String) -> Line {
+    (kind, format!("{prefix}{detail}"), Some(detail))
+}
+
+fn stopped() -> CompleteError {
+    CompleteError::Failed("the model worker stopped".into())
 }

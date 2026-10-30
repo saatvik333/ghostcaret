@@ -78,18 +78,69 @@ impl Default for Settings {
 
 #[derive(Clone, Debug, PartialEq, thiserror::Error)]
 pub enum SettingsError {
-    #[error("settings file is not valid TOML: {0}")]
-    Parse(String),
+    /// The file is not valid TOML for this schema. Carries the place, never
+    /// the text: TOML errors quote the offending line, and a key pasted in the
+    /// wrong place must not reach the tray, the keyboard strip or a log.
+    #[error("{}", describe_parse(*line, key.as_deref()))]
+    Parse { line: Option<usize>, key: Option<String> },
     #[error("settings file version {0} is newer than this app supports ({SETTINGS_VERSION})")]
     TooNew(u32),
     #[error("setting `{key}` is invalid: {reason}")]
     Invalid { key: &'static str, reason: String },
 }
 
+fn describe_parse(line: Option<usize>, key: Option<&str>) -> String {
+    match (line, key) {
+        (Some(line), Some(key)) => format!("setting `{key}` on line {line} of the settings file is not valid"),
+        (Some(line), None) => format!("line {line} of the settings file is not valid TOML"),
+        (None, _) => "the settings file is not valid TOML".to_owned(),
+    }
+}
+
+/// The 1-based line of `offset` in `text` and the dotted key defined there,
+/// if any, so an error can name the place without quoting the value.
+fn locate(text: &str, offset: usize) -> (usize, Option<String>) {
+    let mut offset = offset.min(text.len());
+    while !text.is_char_boundary(offset) {
+        offset -= 1;
+    }
+    let line_start = text[..offset].rfind('\n').map_or(0, |i| i + 1);
+    let line_no = text[..line_start].matches('\n').count() + 1;
+    let line = text[line_start..].lines().next().unwrap_or("").trim();
+    let table = text[..line_start]
+        .lines()
+        .rev()
+        .map(str::trim)
+        .find_map(table_header)
+        .filter(|_| table_header(line).is_none());
+    let key = match table_header(line) {
+        Some(h) => Some(h.to_owned()),
+        None => line.split_once('=').map(|(k, _)| clean_key(k)).filter(|k| !k.is_empty()),
+    };
+    let key = match (table, key) {
+        (Some(t), Some(k)) => Some(format!("{t}.{k}")),
+        (None, k) => k,
+        (Some(t), None) => Some(t.to_owned()),
+    };
+    (line_no, key)
+}
+
+fn table_header(line: &str) -> Option<&str> {
+    let inner = line.strip_prefix("[[").and_then(|l| l.split_once("]]")).map(|(h, _)| h);
+    let inner = inner.or_else(|| line.strip_prefix('[').and_then(|l| l.split_once(']')).map(|(h, _)| h))?;
+    Some(inner.trim())
+}
+
+fn clean_key(raw: &str) -> String {
+    raw.split('.').map(|part| part.trim().trim_matches(['"', '\''])).collect::<Vec<_>>().join(".")
+}
+
 impl Settings {
     pub fn from_toml(text: &str) -> Result<Settings, SettingsError> {
-        let settings: Settings =
-            toml::from_str(text).map_err(|e| SettingsError::Parse(e.to_string()))?;
+        let settings: Settings = toml::from_str(text).map_err(|e| {
+            let place = e.span().map(|s| locate(text, s.start));
+            SettingsError::Parse { line: place.as_ref().map(|p| p.0), key: place.and_then(|p| p.1) }
+        })?;
         if settings.version > SETTINGS_VERSION {
             return Err(SettingsError::TooNew(settings.version));
         }
@@ -337,6 +388,26 @@ mod tests {
     #[test]
     fn empty_file_is_defaults() {
         assert_eq!(Settings::from_toml("").unwrap(), Settings::default());
+    }
+
+    #[test]
+    fn parse_error_names_the_place_but_never_the_value() {
+        // A key pasted where a string setting belongs, unquoted, so TOML
+        // rejects the line. Built at run time so scanners don't flag it.
+        let secret = ["sk-", "live0123456789abcdefghijklmnop"].concat();
+        let text = format!("[context]\nabout_me = {secret}\n");
+        let err = Settings::from_toml(&text).unwrap_err();
+        let message = err.to_string();
+        assert!(!message.contains(&secret), "{message}");
+        assert_eq!(err, SettingsError::Parse { line: Some(2), key: Some("context.about_me".into()) });
+    }
+
+    #[test]
+    fn locate_reads_tables_and_quoted_keys() {
+        let text = "a = 1\n[apps.\"org.telegram.desktop\"]\n\"length\" = 3\n";
+        let at = text.find('3').unwrap();
+        assert_eq!(locate(text, at), (3, Some("apps.\"org.telegram.desktop\".length".to_owned())));
+        assert_eq!(locate(text, 0), (1, Some("a".to_owned())));
     }
 
     #[test]

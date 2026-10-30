@@ -7,13 +7,13 @@ use std::sync::Arc;
 use oft_cloud::{ModelInfo, SentEntry};
 use oft_engine::io::Bindings;
 use oft_engine::settings::{ModelChoice, ProviderConfig, Settings, SettingsError};
+use oft_store::stats::{SeenApp, Usage};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::keys::{self, KeyProblem};
 use crate::settings_store::SaveError;
 use crate::setup::Step;
-use crate::stats::{SeenApp, Usage};
 use crate::{AppState, keychain, memory};
 
 /// An error shown beside the control named by `key` (a settings path such as
@@ -53,7 +53,7 @@ pub struct Overview {
     pub ram_bytes: Option<u64>,
     pub local_available: bool,
     #[cfg(desktop)]
-    pub status: crate::runtime::StatusView,
+    pub status: oft_runtime::StatusView,
 }
 
 #[tauri::command]
@@ -71,7 +71,7 @@ pub async fn overview(state: State<'_, Arc<AppState>>) -> Result<Overview> {
             ram_bytes: memory::total_bytes(),
             local_available: cfg!(feature = "local"),
             #[cfg(desktop)]
-            status: state.runtime.shared.status.lock().unwrap_or_else(|e| e.into_inner()).clone(),
+            status: state.runtime.status(),
             settings,
         })
     })
@@ -97,9 +97,9 @@ pub async fn save_settings(app: AppHandle, state: State<'_, Arc<AppState>>, sett
             SaveError::Invalid(e) => settings_error(e),
             SaveError::Io(e) => CmdError::new(format!("Could not save settings: {e}")),
         })?;
-        state.replace_settings(settings.clone());
+        state.replace_settings(settings);
         #[cfg(desktop)]
-        state.runtime.send(crate::runtime::Command::Settings(Box::new(settings)));
+        state.runtime.send(oft_runtime::Command::SettingsChanged);
         crate::refresh_tray(&app, &state);
         Ok(())
     })
@@ -130,7 +130,7 @@ pub async fn set_api_key(state: State<'_, Arc<AppState>>, provider: String, key:
         let key = checked_key(&key)?;
         keychain::set(&provider, key).map_err(|e| CmdError::at("key", e.to_string()))?;
         #[cfg(desktop)]
-        state.runtime.send(crate::runtime::Command::ModelsChanged);
+        state.runtime.send(oft_runtime::Command::ModelsChanged);
         let _ = state;
         Ok(())
     })
@@ -153,7 +153,7 @@ pub async fn remove_provider(app: AppHandle, state: State<'_, Arc<AppState>>, pr
         state.store.save(&settings).map_err(|e| CmdError::new(e.to_string()))?;
         state.replace_settings(settings.clone());
         #[cfg(desktop)]
-        state.runtime.send(crate::runtime::Command::Settings(Box::new(settings.clone())));
+        state.runtime.send(oft_runtime::Command::SettingsChanged);
         crate::refresh_tray(&app, &state);
         Ok(settings)
     })
@@ -244,7 +244,7 @@ pub async fn seen_apps(state: State<'_, Arc<AppState>>) -> Result<Vec<SeenApp>> 
 }
 
 #[tauri::command]
-pub async fn style_samples(state: State<'_, Arc<AppState>>) -> Result<Vec<crate::style::Sample>> {
+pub async fn style_samples(state: State<'_, Arc<AppState>>) -> Result<Vec<oft_store::style::Sample>> {
     let state = state.inner().clone();
     blocking(move || match &state.style {
         Some(style) => style.all().map_err(|e| CmdError::new(e.to_string())),
@@ -269,20 +269,20 @@ pub async fn set_setup_step(state: State<'_, Arc<AppState>>, step: Step) -> Resu
 
 #[cfg(desktop)]
 #[tauri::command]
-pub fn pause(state: State<'_, Arc<AppState>>, scope: crate::pause::Scope, length: crate::pause::PauseFor) {
-    state.runtime.send(crate::runtime::Command::Pause(scope, length));
+pub fn pause(state: State<'_, Arc<AppState>>, scope: oft_runtime::pause::Scope, length: oft_runtime::pause::PauseFor) {
+    state.runtime.send(oft_runtime::Command::Pause(scope, length));
 }
 
 #[cfg(desktop)]
 #[tauri::command]
 pub fn resume(state: State<'_, Arc<AppState>>, app: Option<String>) {
-    state.runtime.send(crate::runtime::Command::Resume(app));
+    state.runtime.send(oft_runtime::Command::Resume(app));
 }
 
 #[cfg(desktop)]
 #[tauri::command]
-pub fn timings(state: State<'_, Arc<AppState>>) -> Vec<crate::runtime::Timing> {
-    state.runtime.shared.timings.lock().unwrap_or_else(|e| e.into_inner()).iter().copied().collect()
+pub fn timings(state: State<'_, Arc<AppState>>) -> Vec<oft_runtime::Timing> {
+    state.runtime.timings()
 }
 
 /// Emits progress events while a model downloads; see `local_models`.
@@ -429,14 +429,14 @@ pub mod local_models {
                         #[cfg(desktop)]
                         if p.total > 0 {
                             let f = p.downloaded as f32 / p.total as f32;
-                            state.runtime.send(crate::runtime::Command::Download(Some(f)));
+                            state.runtime.send(oft_runtime::Command::Download(Some(f)));
                         }
                     }
                 };
                 let result = state.models.download(entry, &mut on_progress, &cancel);
                 *state.download.lock().unwrap_or_else(|e| e.into_inner()) = None;
                 #[cfg(desktop)]
-                state.runtime.send(crate::runtime::Command::Download(None));
+                state.runtime.send(oft_runtime::Command::Download(None));
                 let cancelled = cancel.is_cancelled();
                 let error = result.err().filter(|_| !cancelled).map(|e| e.to_string());
                 emit(&app, "model-done", DownloadDone { id: entry.id, error, cancelled });
@@ -469,13 +469,13 @@ pub mod local_models {
             }
             if changed {
                 state.store.save(&settings).map_err(|e| CmdError::new(e.to_string()))?;
-                state.replace_settings(settings.clone());
+                state.replace_settings(settings);
                 #[cfg(desktop)]
-                state.runtime.send(crate::runtime::Command::Settings(Box::new(settings)));
+                state.runtime.send(oft_runtime::Command::SettingsChanged);
             }
             state.models.delete(entry).map_err(|e| CmdError::new(format!("Could not delete the model: {e}")))?;
             #[cfg(desktop)]
-            state.runtime.send(crate::runtime::Command::ModelsChanged);
+            state.runtime.send(oft_runtime::Command::ModelsChanged);
             crate::refresh_tray(&app, &state);
             Ok(())
         })

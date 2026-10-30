@@ -36,12 +36,14 @@ flowchart LR
 | `crates/platform` | Field reading, key gate, display and insertion for each OS, in modules compiled per platform |
 | `crates/render` | Software renderer for the suggestion panel and the Reply & rewrite card, shared by the Linux and Windows overlays |
 | `crates/bench` | Replay benchmark |
-| `app/` | Tauri application: runtime, tray, settings, setup, model manager, keychain access |
+| `crates/store` | On-device SQLite stores shared by the app and the keyboard: usage stats (with the daily cloud count) and style memory |
+| `crates/runtime` | The one runtime that drives the controller on every host: worker threads, timers, model loading and unloading, the daily cloud cap and the local fallback, stats and style memory, stage timings. Hosts plug in settings, keys, status display and memory pressure |
+| `app/` | Tauri application: the desktop host of the runtime, tray, settings, setup, model manager, keychain access |
 | `app/ui` | Web interface for settings and setup |
 | `mobile/android` | Keyboard service (Kotlin) and its test harness, moved into the Tauri Android project once integrated |
 | `mobile/ios` | Keyboard extension (Swift), linking the engine as a static library |
 
-The engine never depends on model or OS code. The controller in `crates/engine` is a pure state machine: the app runtime feeds it backend events, model results and timer expiries, and executes the outputs it returns. Every product rule therefore lives in one place and is tested without an OS or a model.
+The engine never depends on model or OS code. The controller in `crates/engine` is a pure state machine: the runtime (`crates/runtime`) feeds it backend events, model results and timer expiries, and executes the outputs it returns. Every product rule therefore lives in one place and is tested without an OS or a model.
 
 ## Process model
 
@@ -117,21 +119,26 @@ The prompt is assembled from segments, ordered from least to most frequently cha
 6. text after the cursor;
 7. text before the cursor.
 
-Each segment has a character cap, and the total fits the model's context budget. The secret filter runs on every segment before a cloud provider sees it.
+Each segment has a byte cap, cut on a character boundary: 3 KB of text before the cursor (keeping its end), 512 bytes after it, 4 KB of conversation (1 KB per message, newest kept first), 1 KB of about me, 1 KB of clipboard, and up to eight style samples of 280 bytes each. The cut in the text before the cursor stays put while the user types, so the local model's cache survives keystrokes. The secret filter runs on every segment before it is cut, so nothing reaches a provider or a log unfiltered.
 
-Models with fill-in-the-middle support get the text around the cursor in that format; the others get labelled text sections. Prompt templates are versioned files in the repository, reviewed like code, and every benchmark result records the template version it used.
+Local base models get labelled plain-text sections with the text before the cursor last, so the model simply continues it. Chat models from cloud providers are asked to return only the continuation inside a tag, and the output is cleaned of quotes, preambles and repeats of the text before the cursor. Prompt templates are versioned (`TEMPLATE_VERSION` for local models, `PROMPT_VERSION` for Reply & rewrite), and every benchmark result records the versions it used.
+
+The controller stays silent in secure and structured fields (password, PIN, URL, number, phone), in apps the user turned off, in code editors and password managers by default, in an empty field, at a plain shell prompt in a terminal, and right after a question mark.
 
 ### Length and boldness
 
-The engine generates tokens until the length mode's boundary, plus one boundary unit of lookahead, or until a hard cap.
+Boldness sets a threshold τ on the cumulative probability of the shown text: τ(b) = 0.8^(1−b) · 0.05^b, so τ is 0.8 at careful, 0.2 in the middle and 0.05 at bold. The interpolation is log-linear because confidence multiplies token by token. The two end points are first values that the benchmark tunes.
 
-1. It finds the first token whose probability falls below the threshold set by the boldness slider. In Auto mode, that point is the cut.
-2. It moves the cut back to the last boundary the mode allows (word, phrase, sentence or paragraph) and to the app's Auto ceiling.
-3. It keeps the rest as a buffer, so "show more" and "take word" do not wait for a new request.
+1. While tokens arrive, the stop rule ends generation one word past the furthest point that could be shown, at a line break, or as soon as the first word fails τ. Silence beats a wrong guess, so a first word below τ shows nothing in any mode.
+2. Auto shows the longest prefix that ends on a word, phrase, sentence or paragraph boundary and keeps its cumulative probability above τ, bounded by the app's ceiling. Fixed modes show up to their own boundary.
+3. Generation is capped per mode: 8 tokens for Word, 24 for Phrase, 64 for Sentence, and twice the paragraph word cap plus 24 for Paragraph.
+4. The text past the cut stays in the buffer, so Take Word and the next Show More step do not wait. Show More past the buffer requests a continuation.
 
-Without token probabilities, Auto cuts at the first sentence boundary, limited by the app's Auto ceiling. The local model always reports probabilities; for cloud providers it depends on the provider.
+Without token probabilities, Auto cuts at the first sentence boundary within the ceiling. The local model always reports probabilities; cloud providers report them where the API offers them.
 
-When the cursor is in the middle of a word, the local model backs off to the start of that word. It then allows only tokens that agree with the letters already typed, by setting a logit bias over the vocabulary. With a cloud provider, the request includes the partial word, and outputs that do not continue it are discarded.
+Suggestions never contain a line break. They never repeat text that already follows the cursor, never consist only of whitespace or punctuation, and join the typed text without a doubled space.
+
+When the cursor is in the middle of a word, the local model uses token healing: it removes the partial word's tokens from the prompt and allows only first tokens that agree with the letters already typed, found by binary search in a sorted table of vocabulary pieces built at load. One extra first token is tried, and candidates are ranked by the probability of their first text. With a cloud provider, the request includes the partial word, and outputs that do not continue it are discarded.
 
 ### Local inference
 
@@ -140,7 +147,7 @@ Ghostcaret runs [llama.cpp](https://github.com/ggml-org/llama.cpp) through Rust 
 These are used from the start:
 
 - One model stays loaded. It is memory-mapped, so loading is fast and the OS can page it. It is loaded on first use, with progress in the tray, and unloaded after a period of idleness the user can set, or when the OS reports memory pressure.
-- The KV cache is reused up to the first token that changed, and the segment order above keeps that point near the end. A keystroke decodes only the new tokens.
+- The KV cache is reused up to the first token that changed, and the segment order above keeps that point near the end. A keystroke decodes only the new tokens. Prompts longer than the context are trimmed from the front in 256-token steps, so the start stays put. Models whose memory cannot drop a partial range need state checkpoints instead: Qwen3.5 (hybrid Gated DeltaNet layers) keeps one at the end of the stable segments, one every 512 tokens and one at each of the last two request ends, and restores the nearest checkpoint before the change. Gemma 4 uses a full-size sliding-window cache and is trimmed like plain attention.
 - While the user types, a short debounce pre-reads the prompt into the cache, so a pause only has to generate.
 - Generation stops at the length mode's boundary plus the lookahead. No token is generated that could never be shown. Cancellation is checked between tokens.
 - Flash attention is enabled wherever the backend supports it.
@@ -155,9 +162,9 @@ These are measured in the engine spike, and adopted only where the benchmark sho
 - Context length, thread count, and placement on performance or efficiency cores, per platform.
 - Saving the cache for the stable segments to disk, so that a restart begins warm.
 
-Base models, rather than chat-tuned ones, are the first candidates, because the task is continuing the user's own text; the benchmark also tests chat models to confirm this. The first shortlist, all Apache-2.0: [Qwen3.5 Base](https://huggingface.co/Qwen/Qwen3.5-2B-Base) at 0.8B, 2B and 4B, and [Gemma 4](https://huggingface.co/google/gemma-4-E4B) E2B and E4B. The benchmark picks the small and the standard model. At the 16 GB floor the standard model is about 3 GB.
+Base models, rather than chat-tuned ones, are the first candidates, because the task is continuing the user's own text; the benchmark also tests chat models to confirm this. The curated manifest, all Apache-2.0 and Q4_K_M: [Qwen3.5 Base](https://huggingface.co/Qwen/Qwen3.5-2B-Base) at 0.8B, 2B and 4B, [Gemma 4](https://huggingface.co/google/gemma-4-E4B) E2B and E4B, and Qwen3 1.7B Base as a plain-attention comparison. The benchmark picks the small and the standard model. At the 16 GB floor the standard model is about 3 GB. Base models carry no chat template, so Reply & rewrite on a local model needs an instruct model; until one is in the manifest, Reply & rewrite works best with a cloud key.
 
-Model files come from a curated manifest shipped inside the signed app. Each entry has the URL, size, SHA-256 and license. Downloads resume after interruption, and a file is used only after its hash matches.
+Model files come from the curated manifest shipped inside the signed app, pinned to repository revisions. Each entry has the URL, size, SHA-256 and license. Downloads resume after interruption (HTTP range requests across redirects), and a file is used only after its hash matches.
 
 ### Cloud providers
 
@@ -165,7 +172,7 @@ Each provider adapter declares what it supports: streaming, token probabilities,
 
 - Autocomplete has at most one request in flight. A new keystroke cancels it, and the cancellation reaches the HTTP layer so the provider can stop. Autocomplete requests are never retried, because a late answer is useless.
 - Reply & rewrite requests retry transient failures (rate limits, overload, transport errors) a bounded number of times, within an end-to-end deadline.
-- A per-minute client limit always applies in the provider; the app runtime enforces the user's daily cap and keeps its count across restarts.
+- A per-minute client limit always applies in the provider, shared by both features when they use the same one; the runtime enforces the user's daily cap and keeps its count across restarts. When the cap is reached or the provider fails, autocomplete moves to an installed local model and returns to the provider five minutes later.
 - Keys are read from the OS keychain when the provider is built, and the provider is rebuilt when the key or provider settings change. They never enter prompts or logs, and never appear in the "What was sent" view. A key is refused over plain `http://` unless the host is loopback or on the local network, and redirects are never followed.
 - Each provider learns what the endpoint supports from its rejections: an OpenAI-compatible server without `/completions` falls back to chat, and a parameter the model rejects (log probabilities, temperature, output-limit field, reasoning effort) is dropped for later requests. Each lesson costs one extra request.
 - Cloud providers return only the main candidate; alternatives come from the local model.
@@ -299,6 +306,7 @@ Each spike ends in a written result.
 | 2026-10-30 | Android ships its own keyboard inside the APK | Keyboards are the only Android component that can insert text everywhere without the accessibility API |
 | 2026-10-29 | Clean-room development | Avoids importing closed-source code or terms |
 | 2026-10-30 | Measured release gates in quality.md: latency, resource use, suggestion quality, parity floor | Best in class is a measured claim; nothing ships below the bar |
+| 2026-10-30 | One runtime crate for the desktop app and the Android keyboard, behind a small host interface | Timers, workers, model management, the daily cap and the local fallback behave the same on every platform and are tested once with fakes |
 
 ## Open technical decisions
 

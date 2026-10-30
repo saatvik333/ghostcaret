@@ -1,6 +1,8 @@
 //! Pauses from the tray and settings: everything, or one app, for a while or
 //! until resumed. The runtime owns the clock and sends the controller the
-//! current set as [`Pause`] whenever it changes.
+//! current set as [`Pause`] whenever it changes; hosts send
+//! [`Command::Pause`](crate::Command::Pause) and
+//! [`Command::Resume`](crate::Command::Resume).
 
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -40,13 +42,13 @@ pub struct PauseInfo {
 }
 
 #[derive(Debug, Default)]
-pub struct Pauses {
+pub(crate) struct Pauses {
     all: Option<Until>,
     apps: BTreeMap<String, (String, Until)>,
 }
 
 impl Pauses {
-    pub fn set(&mut self, scope: Scope, length: PauseFor, now: Instant) {
+    pub(crate) fn set(&mut self, scope: Scope, length: PauseFor, now: Instant) {
         let until = match length {
             PauseFor::UntilResumed => Until { at: None, at_ms: None },
             PauseFor::Minutes(m) => {
@@ -64,7 +66,7 @@ impl Pauses {
     }
 
     /// Ends the pause for one app, or every pause when `app` is `None`.
-    pub fn resume(&mut self, app: Option<&str>) {
+    pub(crate) fn resume(&mut self, app: Option<&str>) {
         match app {
             None => {
                 self.all = None;
@@ -77,7 +79,7 @@ impl Pauses {
     }
 
     /// Drops pauses that have ended; returns true if any did.
-    pub fn expire(&mut self, now: Instant) -> bool {
+    pub(crate) fn expire(&mut self, now: Instant) -> bool {
         let ended = |u: &Until| u.at.is_some_and(|at| at <= now);
         let before = self.apps.len() + usize::from(self.all.is_some());
         if self.all.as_ref().is_some_and(ended) {
@@ -87,16 +89,16 @@ impl Pauses {
         before != self.apps.len() + usize::from(self.all.is_some())
     }
 
-    pub fn next_deadline(&self) -> Option<Instant> {
+    pub(crate) fn next_deadline(&self) -> Option<Instant> {
         self.all.iter().chain(self.apps.values().map(|(_, u)| u)).filter_map(|u| u.at).min()
     }
 
     /// The pause state as the controller takes it.
-    pub fn state(&self) -> Pause {
+    pub(crate) fn state(&self) -> Pause {
         Pause { all: self.all.is_some(), apps: self.apps.keys().cloned().collect() }
     }
 
-    pub fn list(&self) -> Vec<PauseInfo> {
+    pub(crate) fn list(&self) -> Vec<PauseInfo> {
         let all = self.all.iter().map(|u| PauseInfo { app: None, name: None, until_ms: u.at_ms });
         let apps = self.apps.iter().map(|(id, (name, u))| PauseInfo {
             app: Some(id.clone()),
@@ -108,13 +110,13 @@ impl Pauses {
 }
 
 /// "14:35" in local time for `ms` Unix milliseconds.
-pub fn local_clock(ms: u64) -> String {
+pub(crate) fn local_clock(ms: u64) -> String {
     let of_day = local_minutes(ms).rem_euclid(24 * 60);
     format!("{:02}:{:02}", of_day / 60, of_day % 60)
 }
 
 /// Days since 1970-01-01 in local time, for daily counters.
-pub fn local_day(ms: u64) -> i64 {
+pub(crate) fn local_day(ms: u64) -> i64 {
     local_minutes(ms).div_euclid(24 * 60)
 }
 
@@ -149,7 +151,7 @@ fn utc_offset_minutes(_ms: u64) -> i64 {
 }
 
 /// Unix milliseconds now.
-pub fn now_ms() -> u64 {
+pub(crate) fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
 }
 

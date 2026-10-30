@@ -19,10 +19,11 @@ mod gate;
 pub mod latency;
 #[cfg(target_os = "linux")]
 pub mod linux;
-// The Windows module's pure helpers also build on other hosts for their tests.
+// The Windows and Android modules' pure helpers also build on other hosts
+// for their tests.
 #[cfg(any(target_os = "windows", test))]
 pub mod windows;
-#[cfg(target_os = "android")]
+#[cfg(any(target_os = "android", test))]
 pub mod android;
 
 #[derive(Debug, thiserror::Error)]

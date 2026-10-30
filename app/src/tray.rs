@@ -1,12 +1,12 @@
 //! The tray icon: status, pause, settings and quit.
 
+use oft_runtime::pause::{PauseFor, Scope};
+use oft_runtime::{Command, StatusKind, StatusView};
 use tauri::menu::{IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, Wry};
 
 use crate::AppState;
-use crate::pause::{PauseFor, Scope};
-use crate::runtime::{Command, StatusKind, StatusView};
 
 const TRAY: &str = "main";
 const LENGTHS: [(&str, &str); 3] = [("15", "For 15 minutes"), ("60", "For 1 hour"), ("0", "Until resumed")];
@@ -92,7 +92,7 @@ fn on_menu(app: &AppHandle, event: MenuEvent) {
         "quit" => app.exit(0),
         "resume:all" => state.runtime.send(Command::Resume(None)),
         "resume:app" => {
-            let current = state.runtime.shared.status.lock().unwrap_or_else(|e| e.into_inner()).app.clone();
+            let current = state.runtime.status().app;
             if let Some(current) = current {
                 state.runtime.send(Command::Resume(Some(current.id)));
             }
@@ -105,7 +105,7 @@ fn on_menu(app: &AppHandle, event: MenuEvent) {
             let scope = match scope {
                 "all" => Scope::All,
                 _ => {
-                    let current = state.runtime.shared.status.lock().unwrap_or_else(|e| e.into_inner()).app.clone();
+                    let current = state.runtime.status().app;
                     let Some(current) = current else { return };
                     Scope::App { id: current.id, name: current.name }
                 }

@@ -6,6 +6,8 @@ members = [
     "crates/cloud",
     "crates/platform",
     "crates/render",
+    "crates/store",
+    "crates/runtime",
     "crates/bench",
     "app",
 ]
@@ -24,6 +26,8 @@ oft-local = { path = "crates/local" }
 oft-cloud = { path = "crates/cloud" }
 oft-platform = { path = "crates/platform" }
 oft-render = { path = "crates/render" }
+oft-store = { path = "crates/store" }
+oft-runtime = { path = "crates/runtime" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "1"
