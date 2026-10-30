@@ -66,7 +66,7 @@ Any public claim that Ghostcaret is better than another product must point to th
 
 ### Side-by-side test
 
-Closed products cannot run inside the harness, so they are compared by hand. The comparators are FlowIn and macOS inline predictive text on macOS, Windows text suggestions on Windows, and Gboard on Android.
+Closed products cannot run inside the harness, so they are compared by hand, using each product's best publicly available plan. The comparators are FlowIn, Cotypist, TypeSeer and macOS inline predictive text on macOS; TypeSeer, Lightkey and Windows text suggestions on Windows; and Gboard on Android. The list follows [product.md](product.md#comparable-products) as products appear or disappear.
 
 1. A fixed set of typing tasks (reply to an email, a chat exchange, a document paragraph, a message in a terminal chat tool) is typed by a script, or by a person following a script.
 2. Keystrokes, accepted suggestions, wrong suggestions and time are counted.

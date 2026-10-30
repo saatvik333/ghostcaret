@@ -20,18 +20,52 @@ The goal is the best predictive typing available on each platform: more accurate
 
 ## Comparable products
 
-| Product | License | Platforms | Model | Notes |
-| --- | --- | --- | --- | --- |
-| [FlowIn](https://flowin.so) | Closed source. Free tier of 150 autocomplete words and 10 AI replies a day; Pro $10.99 a month; one-time license $129.99 | macOS on Apple Silicon | On-device model for autocomplete; the vendor's cloud for replies. Own API key only for replies, and only on the one-time license | Has reply drafts and rewrite of selected text |
-| [Cotabby](https://github.com/FuJacob/cotabby) | AGPL-3.0 | macOS | Local GGUF models, Apple Intelligence, or an OpenAI-compatible endpoint | Autocomplete |
-| [KeyType](https://github.com/johnbean393/KeyType), [Pretype](https://github.com/nikiomori/Pretype) | MIT | macOS | Local | Autocomplete |
-| [MindFlow](https://github.com/simoabid/MindFlow) | MIT | Linux (IBus) | Gemini | Early project |
+Prices, platforms and data practices below come from each vendor's own pricing, privacy and terms pages, read on 2026-10-30. They change; check the linked page before repeating a figure.
 
-FlowIn figures come from its [pricing page](https://flowin.so/pricing) and [FAQ](https://flowin.so/faq) as of 2026-10-29.
+### Paid tools that complete text inline across apps
 
-Operating systems also ship simpler prediction of their own: [inline predictive text](https://support.apple.com/guide/mac-help/mchlp2299/mac) on macOS 14 and later, [text suggestions](https://support.microsoft.com/en-us/accessibility/windows/enable-text-suggestions-in-windows) on Windows, and phone keyboards such as Gboard. [quality.md](quality.md#side-by-side-test) compares Ghostcaret against these as well.
+| Product | Platforms | Price | Local model | Own API key | Open source | Account | What leaves the machine |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| [FlowIn](https://flowin.so/pricing) | macOS (Apple Silicon) | Free tier of 150 words and 10 AI replies a day after a 14-day trial; Pro $10.99 a month or $79.99 a year; one-time $129.99 with 12 months of updates | Yes, plus cloud models | Only on the one-time license, and only for replies | No | License key | Cloud features send text to the vendor's relay and an AI provider. [Privacy policy](https://flowin.so/privacy): anonymous usage analytics, including the names of apps used, tied to an install ID |
+| [Cotypist](https://cotypist.app/pricing) | macOS (Apple Silicon) | Free tier of 100 accepted words a day; Plus 72 a year (one Mac); Pro 108 a year (three Macs); the page shows no currency symbol | On-device only | No | No | Not required | Text stays on the Mac. Anonymous usage stats and crash reports on by default, opt-out ([privacy](https://cotypist.app/help/privacy)) |
+| [TypeSeer](https://typeseer.com/pricing.html) | macOS 14+ (Apple Silicon), Windows 10/11 | No free tier; $3.99 a month, $34.99 a year or $79.99 once, per platform, two devices | On-device only; accepts your own GGUF models | No | No | Not required | Typing stays on the device; the update check sends an install ID ([privacy](https://typeseer.com/privacy.html)) |
+| [Lightkey](https://www.lightkey.io/editions) | Windows, plus Chrome and Edge extensions | No free edition; Pro $49.95 a year or $229.95 once; Business $69.95 a year or $299.95 once | Offline word prediction; the vendor says it is not generative AI | No | No | Not verified | Pro sends usage metrics by default, opt-out ([privacy](https://www.lightkey.io/privacy-policy)) |
+| [HyperWrite TypeAhead](https://www.hyperwriteai.com/) | Chrome extension only | Premium $19.99 a month ($16 billed yearly); Ultra $44.99 a month ($29 billed yearly) | No | Not verified | No | Required | Cloud. [Privacy policy](https://www.hyperwriteai.com/privacy) (last updated 2022) mentions Google Analytics and interest-based ads |
+| [Compose AI](https://www.compose.ai/) | Chrome extension only | Free plan plus a premium tier; prices not published in readable form | No | No | No | Required | Text goes to its servers; the [privacy policy](https://www.compose.ai/privacy-policy) names Mixpanel, Segment and Google Analytics |
 
-Ghostcaret covers Linux, macOS, Windows, Android and iOS. Every feature runs on a local model or the user's own key. Users control suggestion length and boldness, and the reply and rewrite feature is open source too.
+### Paid tools people use instead of typing
+
+These rewrite or dictate rather than complete inline, but they are what many people pay for to write faster.
+
+| Product | Platforms | Price | Runs locally | Own API key | Notes |
+| --- | --- | --- | --- | --- | --- |
+| [Grammarly](https://www.grammarly.com/pro) | Browser extension and desktop apps | Pro $12 a month billed yearly, $30 monthly | No | No | Rewrites and generates text; [content may be used to train its models](https://superhuman.com/legal/privacy-policy) unless turned off in account settings |
+| [Wispr Flow](https://wisprflow.ai/pricing) | macOS, Windows, iOS, Android | Pro $15 a month ($12 billed yearly) | No; [transcription always runs in the cloud](https://wisprflow.ai/data-controls) | No | Voice dictation |
+| [Superwhisper](https://superwhisper.com/) | macOS, Windows, iOS, Android | Free tier; Pro price not verified | Yes | Yes, on Pro | Voice dictation |
+| [Typeless](https://www.typeless.com/pricing) | Desktop and mobile | Pro $12 a month billed yearly, $30 monthly | No | No | Voice dictation with rewriting |
+| [Willow Voice](https://willowvoice.com/pricing) | Mac, Windows, iOS, Android (some marked coming soon) | Pro $15 a month ($12 billed yearly) | No | No | Voice dictation |
+| [Aqua Voice](https://aquavoice.com/pricing) | Mac, Windows, iOS, Android | Free 1,000 words; Pro $12 a month ($10 billed yearly) | No | No | Voice dictation |
+
+### Free and open-source tools
+
+| Product | License | Platforms | Model |
+| --- | --- | --- | --- |
+| [Cotabby](https://github.com/FuJacob/cotabby) | AGPL-3.0 | macOS | Local GGUF models, Apple Intelligence, or an OpenAI-compatible endpoint |
+| [KeyType](https://github.com/johnbean393/KeyType), [Pretype](https://github.com/nikiomori/Pretype), [Shadowtype](https://github.com/jacobbourne/shadowtype) | MIT | macOS | Local |
+| [MindFlow](https://github.com/simoabid/MindFlow) | MIT | Linux (IBus) | Gemini; early project |
+
+Operating systems also ship simpler prediction of their own: [inline predictive text](https://support.apple.com/guide/mac-help/mchlp2299/mac) on macOS 14 and later, [text suggestions](https://support.microsoft.com/en-us/accessibility/windows/enable-text-suggestions-in-windows) on Windows (word choices above the cursor, picked with the mouse or arrow keys), and phone keyboards such as Gboard. [quality.md](quality.md#side-by-side-test) compares Ghostcaret against these as well.
+
+### Where Ghostcaret differs
+
+Ghostcaret is in development, so everything in this section is planned, not shipped. Whether it predicts better than these products is a question for the benchmark in [quality.md](quality.md), and no such claim is made until that report exists.
+
+- Price: free, with no word or reply limits. The paid inline tools above start at $34.99 a year (TypeSeer); HyperWrite's top plan is $348 a year billed yearly or $44.99 a month billed monthly.
+- Platforms: Linux first, then Windows and Android; macOS and iOS later. None of the paid tools checked has a Linux app. The two Chrome extensions work in Chrome on Linux, but only inside the browser. TypeSeer is the only inline tool with native apps for more than one desktop OS.
+- Your choice of model: a local model on your machine, or your own key for any OpenAI-compatible endpoint, Anthropic or Gemini, for both autocomplete and replies. Among the paid tools checked, only FlowIn's one-time license (for replies) and Superwhisper Pro (for dictation) accept your own key.
+- Open source: MPL-2.0, so anyone can check what the app does with their keystrokes. None of the paid tools checked is open source.
+- No account and no telemetry. Several of the tools above collect usage analytics by default.
+- Length: you choose how long suggestions get, per app.
 
 ## First release
 
