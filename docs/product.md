@@ -1,8 +1,8 @@
-# open-flowtype product spec
+# Ghostcaret product spec
 
 Status: draft. Decisions recorded here were agreed on 2026-10-29 and 2026-10-30. Nothing is built yet.
 
-open-flowtype suggests the rest of what you are typing, in any text field, on every desktop and mobile platform. The suggestion appears as faint text at your cursor. You can take the next word, take all of it, ask for more, or keep typing and ignore it. It can also draft a reply to the conversation on screen, or rewrite text you have selected.
+Ghostcaret suggests the rest of what you are typing, in any text field, on every desktop and mobile platform. The suggestion appears as faint text at your cursor. You can take the next word, take all of it, ask for more, or keep typing and ignore it. It can also draft a reply to the conversation on screen, or rewrite text you have selected.
 
 It is free and open source under MPL-2.0. You choose the model: a local model that runs on your own machine, or your own API key for a cloud provider. There is no account, no telemetry and no paid tier.
 
@@ -10,7 +10,7 @@ The goal is the best predictive typing available on each platform: more accurate
 
 ## Rules the product keeps
 
-1. Typing never waits on open-flowtype. Keystrokes reach the app at once; prediction runs beside them, and the next keystroke cancels it.
+1. Typing never waits on Ghostcaret. Keystrokes reach the app at once; prediction runs beside them, and the next keystroke cancels it.
 2. Silence is better than a wrong guess. A suggestion appears only when the model is sure enough for the user's boldness setting.
 3. The user decides how much it suggests, which keys accept it, and which apps it runs in.
 4. Text stays on the device unless the user configured a cloud provider. Even then, only the context for that one request leaves, after the secret filter has run.
@@ -29,13 +29,13 @@ The goal is the best predictive typing available on each platform: more accurate
 
 FlowIn figures come from its [pricing page](https://flowin.so/pricing) and [FAQ](https://flowin.so/faq) as of 2026-10-29.
 
-Operating systems also ship simpler prediction of their own: [inline predictive text](https://support.apple.com/guide/mac-help/mchlp2299/mac) on macOS 14 and later, [text suggestions](https://support.microsoft.com/en-us/accessibility/windows/enable-text-suggestions-in-windows) on Windows, and phone keyboards such as Gboard. [quality.md](quality.md#side-by-side-test) compares open-flowtype against these as well.
+Operating systems also ship simpler prediction of their own: [inline predictive text](https://support.apple.com/guide/mac-help/mchlp2299/mac) on macOS 14 and later, [text suggestions](https://support.microsoft.com/en-us/accessibility/windows/enable-text-suggestions-in-windows) on Windows, and phone keyboards such as Gboard. [quality.md](quality.md#side-by-side-test) compares Ghostcaret against these as well.
 
-open-flowtype covers Linux, macOS, Windows, Android and iOS. Every feature runs on a local model or the user's own key. Users control suggestion length and boldness, and the reply and rewrite feature is open source too.
+Ghostcaret covers Linux, macOS, Windows, Android and iOS. Every feature runs on a local model or the user's own key. Users control suggestion length and boldness, and the reply and rewrite feature is open source too.
 
 ## First release
 
-Each platform's first release ships autocomplete and Flow Draft together. Mobile limits are listed under [Platforms](#platforms).
+Each platform's first release ships autocomplete and Reply & rewrite together. Mobile limits are listed under [Platforms](#platforms).
 
 ### Autocomplete
 
@@ -47,7 +47,7 @@ It stays quiet in these places:
 - address bars;
 - code editors, unless the user turns it on for that app;
 - a terminal sitting at a plain shell prompt, so Tab keeps working for shell completion. It does work in prose inside terminal apps, such as a Claude Code session;
-- an empty field, until the user has typed something. Flow Draft covers starting from nothing.
+- an empty field, until the user has typed something. Reply & rewrite covers starting from nothing.
 
 ### Length and boldness
 
@@ -78,7 +78,7 @@ The engine writes a little further than it shows. Taking a word or asking for mo
 | Show more | Alt+→ (Option+→ on macOS) | Extends the suggestion in place |
 | Next or previous alternative | Alt+↓ / Alt+↑ | Proposed default, not yet confirmed |
 | Dismiss | Esc | |
-| Flow Draft | Tap the right Alt key (right Option on macOS) on its own | Holding it as a modifier keeps its normal meaning |
+| Reply & rewrite | Tap the right Alt key (right Option on macOS) on its own | Holding it as a modifier keeps its normal meaning |
 | Pause or resume | No default | Can be set in settings; the tray menu always offers pause |
 
 Every key can be changed, and the settings refuse a binding that clashes with another action or a reserved system shortcut. On phones the suggestion appears in the keyboard's suggestion strip instead. The touch controls are designed in the mobile phase.
@@ -87,15 +87,15 @@ Every key can be changed, and the settings refuse a binding that clashes with an
 
 While a suggestion is showing, up to three other continuations can be cycled. The local model computes them at almost no extra cost. A cloud provider needs extra requests for them, so they are only fetched when the user asks.
 
-### Flow Draft
+### Reply & rewrite
 
-Flow Draft writes a whole reply, or rewrites text the user has selected.
+It drafts a whole reply to the conversation on screen, or rewrites text the user has selected.
 
-Reply: in a chat or email reply box, the user taps the Flow Draft key. open-flowtype reads the visible conversation and offers three short directions, such as "accept and suggest Tuesday", along with a field to type a custom one. Picking one writes a full draft into a preview card. The user can accept it into the text box, edit the direction, or close the card.
+Reply: in a chat or email reply box, the user taps the Reply & rewrite key. Ghostcaret reads the visible conversation and offers three short directions, such as "accept and suggest Tuesday", along with a field to type a custom one. Picking one writes a full draft into a preview card. The user can accept it into the text box, edit the direction, or close the card.
 
 Rewrite: the user selects text and taps the same key. The card offers Fix, Rephrase, Shorten, Expand, Translate and Change tone, plus any custom actions the user has defined, such as "make it formal" or "add my sign-off". The result shows in the preview first. Accepting replaces the selection, and one undo restores the original.
 
-Flow Draft follows these rules:
+Reply & rewrite follows these rules:
 
 - It shows exactly what will be inserted before inserting it.
 - It never sends a message or presses Return.
@@ -119,20 +119,20 @@ Flow Draft follows these rules:
 
 Setup asks the user to choose between a local model and their own key.
 
-For a local model, open-flowtype checks memory first. On 16 GB or more, it offers the standard model (about 3 GB). With less, it offers the small model or suggests using a key. Any other GGUF file also works. The download runs in the background and resumes after interruption, and the file is checked against its published hash before use.
+For a local model, Ghostcaret checks memory first. On 16 GB or more, it offers the standard model (about 3 GB). With less, it offers the small model or suggests using a key. Any other GGUF file also works. The download runs in the background and resumes after interruption, and the file is checked against its published hash before use.
 
 For their own key, the user picks a provider: any OpenAI-compatible endpoint (OpenAI, OpenRouter, Groq, Together, Ollama, LM Studio, llama-server, vLLM and similar), Anthropic, or Gemini. They paste the key and test it with one request. Keys are stored in the operating system's keychain.
 
-Autocomplete and Flow Draft each have their own model choice. Cloud use shows a request counter and supports an optional daily request cap. If the cloud provider fails, autocomplete goes quiet, the tray shows why, and the local model takes over if one is installed.
+Autocomplete and Reply & rewrite each have their own model choice. Cloud use shows a request counter and supports an optional daily request cap. If the cloud provider fails, autocomplete goes quiet, the tray shows why, and the local model takes over if one is installed.
 
 ### Privacy and safety
 
-- open-flowtype never reads password or secure fields.
+- Ghostcaret never reads password or secure fields.
 - The secret filter removes API keys, access tokens, card numbers and `password=`-style pairs before anything leaves the device or goes into style memory.
 - Password managers are on the blocked-apps list by default. Users can add any app.
 - A "What was sent" view lists every cloud request from the current session: provider, model, and the exact text sent. It is kept in memory and cleared on quit.
 - There is no telemetry. Network access happens only for model downloads, the update check (which can be turned off) and the provider the user configured.
-- Text read from the screen, the clipboard or a conversation is treated as data. Instructions inside it cannot change what open-flowtype does.
+- Text read from the screen, the clipboard or a conversation is treated as data. Instructions inside it cannot change what Ghostcaret does.
 
 ### Per-app control
 
@@ -150,7 +150,7 @@ Stats are kept on the device: words accepted, keystrokes saved, and acceptance r
 | Auto ceiling | Sentence in chat apps, Paragraph in email, documents and notes, Word in search boxes |
 | Boldness | Set by the benchmark |
 | Learn my length | Off |
-| Keys | Tab next word, ` whole suggestion, Alt+→ more, Esc dismiss, right Alt tap for Flow Draft |
+| Keys | Tab next word, ` whole suggestion, Alt+→ more, Esc dismiss, right Alt tap for Reply & rewrite |
 | Model | Chosen at setup (local or own key) |
 | Local model on 16 GB or more | Standard, about 3 GB |
 | Local model below 16 GB | Small model, or own key |
@@ -162,20 +162,20 @@ Stats are kept on the device: words accepted, keystrokes saved, and acceptance r
 
 | Platform | How suggestions appear | Permissions requested | Known limits |
 | --- | --- | --- | --- |
-| Linux (Wayland) | open-flowtype is the input method; the suggestion appears in a small panel at the cursor | None beyond running it; the screenshot portal only for OCR | Needs a compositor with the Wayland input-method protocol (niri, sway, Hyprland, river, labwc and others); KDE Plasma, GNOME and X11 come later. Cannot run alongside fcitx5 or IBus. Apps must support `text-input-v3`; Chromium and Electron need `--enable-wayland-ime` ([fcitx5 Wayland guide](https://fcitx-im.org/wiki/Using_Fcitx_5_on_Wayland)) |
-| macOS | Faint text drawn at the cursor | Accessibility; Screen Recording only for OCR | Paused while another app holds Secure Input (open-flowtype names the app when macOS reveals it). Browsers that hide the cursor position get a card above the field |
-| Windows | Faint text drawn at the cursor | None beyond install | Cannot reach apps running as administrator unless open-flowtype also runs elevated |
-| Android | In open-flowtype's own keyboard | Enable the keyboard | The user must switch to this keyboard. Keyboards cannot read the rest of the screen, so replies use the field text, the selection and, optionally, the clipboard |
-| iOS / iPadOS | In open-flowtype's keyboard extension | Enable the keyboard, and turn on Full Access so it can reach the cloud provider | Cloud key only: keyboard extensions are limited to tens of megabytes of memory, too little for a local model. Same conversation limit as Android |
+| Linux (Wayland) | Ghostcaret is the input method; the suggestion appears in a small panel at the cursor | None beyond running it; the screenshot portal only for OCR | Needs a compositor with the Wayland input-method protocol (niri, sway, Hyprland, river, labwc and others); KDE Plasma, GNOME and X11 come later. Cannot run alongside fcitx5 or IBus. Apps must support `text-input-v3`; Chromium and Electron need `--enable-wayland-ime` ([fcitx5 Wayland guide](https://fcitx-im.org/wiki/Using_Fcitx_5_on_Wayland)) |
+| macOS | Faint text drawn at the cursor | Accessibility; Screen Recording only for OCR | Paused while another app holds Secure Input (Ghostcaret names the app when macOS reveals it). Browsers that hide the cursor position get a card above the field |
+| Windows | Faint text drawn at the cursor | None beyond install | Cannot reach apps running as administrator unless Ghostcaret also runs elevated |
+| Android | In Ghostcaret's own keyboard | Enable the keyboard | The user must switch to this keyboard. Keyboards cannot read the rest of the screen, so replies use the field text, the selection and, optionally, the clipboard |
+| iOS / iPadOS | In Ghostcaret's keyboard extension | Enable the keyboard, and turn on Full Access so it can reach the cloud provider | Cloud key only: keyboard extensions are limited to tens of megabytes of memory, too little for a local model. Same conversation limit as Android |
 
 ## First run
 
 | Step | What happens | If it goes wrong |
 | --- | --- | --- |
-| 1. Welcome | One screen: what open-flowtype does, and that it works without an account | |
+| 1. Welcome | One screen: what Ghostcaret does, and that it works without an account | |
 | 2. Permissions | The platform's required permission, with the reason and what is not done with it | Denied: setup continues, the tray shows "Permission needed", and settings can re-open the request. macOS is checked again after updates, because it can silently revoke the grant |
 | 3. Model | Choose local model or own key, as described under Models and keys | Download fails: retry, resume later, or switch to a key. Key test fails: the provider's error is shown and the pasted key is kept |
-| 4. Practice | A practice field to try Tab, backtick, Alt+→ and Esc, then a sample Flow Draft | If the model is still downloading, practice waits with real progress shown, or can be skipped |
+| 4. Practice | A practice field to try Tab, backtick, Alt+→ and Esc, then a sample reply | If the model is still downloading, practice waits with real progress shown, or can be skipped |
 | 5. Done | Shows where the tray icon is and how to pause | |
 
 Setup can be left and resumed at the same step.

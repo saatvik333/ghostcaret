@@ -1,10 +1,10 @@
-# open-flowtype architecture
+# Ghostcaret architecture
 
 Status: in development, 2026-10-30. The workspace and the shared contracts exist; the components are being built. The product behaviour this design must deliver is in [product.md](product.md), and the measured targets it must meet are in [quality.md](quality.md).
 
 ## Overview
 
-open-flowtype is one Tauri 2 application, written in Rust, built for each platform. The same Rust engine runs everywhere. A Rust module for each operating system reads text, catches keys, shows suggestions and inserts text. Tauri provides the windows, tray, settings interface, updater and packaging.
+Ghostcaret is one Tauri 2 application, written in Rust, built for each platform. The same Rust engine runs everywhere. A Rust module for each operating system reads text, catches keys, shows suggestions and inserts text. Tauri provides the windows, tray, settings interface, updater and packaging.
 
 Two pieces need a little non-Rust code because the operating system requires it. Each is a thin shim that hands text to the Rust engine:
 
@@ -14,9 +14,9 @@ Two pieces need a little non-Rust code because the operating system requires it.
 ```mermaid
 flowchart LR
   subgraph App["Tauri app (one per-user process on desktop)"]
-    UI["Web UI: settings, setup,<br/>Flow Draft card, alternatives"]
+    UI["Web UI: settings, setup,<br/>Reply & rewrite card, alternatives"]
     TRAY[Tray, updater,<br/>model manager, keychain]
-    ENG["engine (Rust): context, filter,<br/>prompts, length control,<br/>llama.cpp, providers, Flow Draft"]
+    ENG["engine (Rust): context, filter,<br/>prompts, length control,<br/>llama.cpp, providers, Reply & rewrite"]
     PLAT["platform (Rust, per OS):<br/>read field, key gate,<br/>display, insert"]
     UI <--> ENG
     TRAY <--> ENG
@@ -34,7 +34,7 @@ flowchart LR
 | `crates/local` | Local inference through llama.cpp, and the model store (manifest, verified downloads) |
 | `crates/cloud` | Providers for the user's own key (OpenAI-compatible, Anthropic, Gemini) and the "What was sent" log |
 | `crates/platform` | Field reading, key gate, display and insertion for each OS, in modules compiled per platform |
-| `crates/render` | Software renderer for the suggestion panel and the Flow Draft card, shared by the Linux and Windows overlays |
+| `crates/render` | Software renderer for the suggestion panel and the Reply & rewrite card, shared by the Linux and Windows overlays |
 | `crates/bench` | Replay benchmark |
 | `app/` | Tauri application: runtime, tray, settings, setup, model manager, keychain access |
 | `app/ui` | Web interface for settings and setup |
@@ -45,7 +45,7 @@ The engine never depends on model or OS code. The controller in `crates/engine` 
 
 ## Process model
 
-On the desktop, open-flowtype runs as one process per user: the Tauri app, started at login and living in the tray. It loads the model, the engine and the platform modules. It opens no network listening ports.
+On the desktop, Ghostcaret runs as one process per user: the Tauri app, started at login and living in the tray. It loads the model, the engine and the platform modules. It opens no network listening ports.
 
 On Linux, the app itself is the input method. It speaks the Wayland input-method protocol (`zwp_input_method_v2`) from a dedicated thread on its own Wayland connection, so no fcitx5 or IBus plugin and no socket are involved. While a text field is active it holds a keyboard grab, handles bound keys, and forwards every other key unchanged through a virtual keyboard (`zwp_virtual_keyboard_v1`). If the app exits or crashes, the compositor drops the grab and typing continues without it.
 
@@ -64,7 +64,7 @@ Each OS module provides the same capabilities to the engine:
 | Key gate | Decides immediately whether to consume a key, using a local copy of "a suggestion is showing" and the bound keys. It never waits on the engine |
 | Display | Shows, updates and hides the suggestion: overlay, input-method text, card, or keyboard strip |
 | Insert | Inserts text or replaces a range, and reports inserted, failed or unknown. The method is chosen per app: typed Unicode, paste with the clipboard restored, setting the value through accessibility, or an input-method commit |
-| Conversation read | The visible messages, with sender where known, for Flow Draft |
+| Conversation read | The visible messages, with sender where known, for Reply & rewrite |
 | Status | Secure input, lost permission, blocked app |
 
 How each platform provides them:
@@ -81,7 +81,7 @@ How each platform provides them:
 | Conversation | Accessibility tree of the window; Vision OCR fallback with Screen Recording permission | UI Automation tree; `Windows.Media.Ocr` fallback | AT-SPI over D-Bus; screenshot portal plus OCR fallback | Not available to keyboards | Not available to keyboards |
 | Secure input / blocked | `IsSecureEventInputEnabled` | Elevated windows are unreachable (UIPI) | Password purpose | Password types | Secure fields use the system keyboard |
 
-On Wayland the input-method route is the only one that works: ordinary windows cannot learn the cursor's position or place themselves next to it, and there is no global keyboard capture. `zwp_input_method_v2` is offered by niri, sway, Hyprland, river, labwc and other wlroots- and Smithay-based compositors. Only one input method can be bound at a time, so open-flowtype cannot run alongside fcitx5 or IBus. KDE Plasma (which offers `zwp_input_method_v1`), GNOME (which uses IBus over D-Bus) and X11 sessions need their own adapters; see the open decisions.
+On Wayland the input-method route is the only one that works: ordinary windows cannot learn the cursor's position or place themselves next to it, and there is no global keyboard capture. `zwp_input_method_v2` is offered by niri, sway, Hyprland, river, labwc and other wlroots- and Smithay-based compositors. Only one input method can be bound at a time, so Ghostcaret cannot run alongside fcitx5 or IBus. KDE Plasma (which offers `zwp_input_method_v1`), GNOME (which uses IBus over D-Bus) and X11 sessions need their own adapters; see the open decisions.
 
 ## Engine
 
@@ -135,7 +135,7 @@ When the cursor is in the middle of a word, the local model backs off to the sta
 
 ### Local inference
 
-open-flowtype runs [llama.cpp](https://github.com/ggml-org/llama.cpp) through Rust bindings, with the GPU backend each platform supports: Metal on macOS, Vulkan or CUDA on Windows and Linux, and CPU or Vulkan on Android. The CPU code path is chosen at run time for the processor's instruction set, so one build runs at full speed on every machine.
+Ghostcaret runs [llama.cpp](https://github.com/ggml-org/llama.cpp) through Rust bindings, with the GPU backend each platform supports: Metal on macOS, Vulkan or CUDA on Windows and Linux, and CPU or Vulkan on Android. The CPU code path is chosen at run time for the processor's instruction set, so one build runs at full speed on every machine.
 
 These are used from the start:
 
@@ -164,7 +164,7 @@ Model files come from a curated manifest shipped inside the signed app. Each ent
 Each provider adapter declares what it supports: streaming, token probabilities, raw completion as well as chat, fill-in-the-middle, and prompt caching. Planned adapters: OpenAI-compatible (chat and completions), Anthropic Messages, and Gemini.
 
 - Autocomplete has at most one request in flight. A new keystroke cancels it, and the cancellation reaches the HTTP layer so the provider can stop. Autocomplete requests are never retried, because a late answer is useless.
-- Flow Draft requests retry transient failures (rate limits, overload, transport errors) a bounded number of times, within an end-to-end deadline.
+- Reply & rewrite requests retry transient failures (rate limits, overload, transport errors) a bounded number of times, within an end-to-end deadline.
 - A per-minute client limit always applies in the provider; the app runtime enforces the user's daily cap and keeps its count across restarts.
 - Keys are read from the OS keychain when the provider is built, and the provider is rebuilt when the key or provider settings change. They never enter prompts or logs, and never appear in the "What was sent" view. A key is refused over plain `http://` unless the host is loopback or on the local network, and redirects are never followed.
 - Each provider learns what the endpoint supports from its rejections: an OpenAI-compatible server without `/completions` falls back to chat, and a parameter the model rejects (log probabilities, temperature, output-limit field, reasoning effort) is dropped for later requests. Each lesson costs one extra request.
@@ -173,7 +173,7 @@ Each provider adapter declares what it supports: streaming, token probabilities,
 - Requests ask for token probabilities where the provider offers them, and set the output limit from the length mode, so no tokens are paid for that cannot be shown.
 - The stable-first segment order also matches how provider prompt caches work, so repeated requests reuse the cached prefix where the provider supports it.
 
-### Flow Draft
+### Reply & rewrite
 
 ```mermaid
 sequenceDiagram
@@ -181,8 +181,8 @@ sequenceDiagram
   participant P as Platform layer
   participant E as Engine
   participant M as Model (local or provider)
-  participant C as Flow Draft card
-  U->>P: taps the Flow Draft key
+  participant C as Reply & rewrite card
+  U->>P: taps the Reply & rewrite key
   P->>E: field text, selection, visible conversation
   E->>M: request three reply directions
   M-->>E: directions (validated as short plain text)
@@ -243,7 +243,7 @@ Integration with the OS is driven by events. Focus, value and selection changes 
 
 Rendering does as little as possible. The suggestion window is created once and reused. An update changes only its text and position, and lands within one frame. There is no animation by default, which also respects reduced-motion settings.
 
-Work runs only while the user types. Prediction starts after a keystroke and stops at the boundary or at the next keystroke. When the user is not typing, open-flowtype has no running timers, and its process sleeps until the OS wakes it.
+Work runs only while the user types. Prediction starts after a keystroke and stops at the boundary or at the next keystroke. When the user is not typing, Ghostcaret has no running timers, and its process sleeps until the OS wakes it.
 
 Memory follows the OS. The model unloads on memory-pressure signals (macOS memory pressure, Android `onTrimMemory`, Windows low-memory notifications) and when idle. Settings and setup windows release their web views when closed.
 
@@ -258,7 +258,7 @@ Each request records stage timings in release builds: read, filter, build, decod
 - No network listener and no local socket.
 - API keys stay in the OS keychain and are loaded only to build the provider. They never go into prompts, logs or the "What was sent" view.
 - Text from fields, screens, clipboards and conversations is data. It cannot trigger an action or change a setting.
-- Text is inserted only after an explicit accept: an accept key for autocomplete, the accept button for Flow Draft. Nothing is ever sent.
+- Text is inserted only after an explicit accept: an accept key for autocomplete, the accept button for Reply & rewrite. Nothing is ever sent.
 - Model files are verified against SHA-256 hashes from the manifest inside the signed app. Updates are signed.
 - Clean-room rule: no code, prompts, assets or model files are copied from closed-source products, and contributions derived from decompiling them are not accepted.
 
@@ -280,8 +280,8 @@ Each spike ends in a written result.
 ## Build order
 
 1. The engine and the benchmark come first, because every platform depends on them.
-2. Platforms then follow: Linux, macOS, Windows, Android, iOS.
-3. Each platform release includes autocomplete and Flow Draft.
+2. Platforms: Linux first, with Windows and Android built alongside it; macOS and iOS follow once there is hardware to test on.
+3. Each platform release includes autocomplete and Reply & rewrite.
 
 ## Decisions
 
@@ -290,8 +290,8 @@ Each spike ends in a written result.
 | 2026-10-29 | MPL-2.0 license | Changes to our own files stay open; the code can be combined with Apache and MIT dependencies; compatible with App Store distribution |
 | 2026-10-29 | Engine in Rust | One codebase for all targets, with direct use of llama.cpp's C API |
 | 2026-10-30 | One Tauri 2 app with native Rust platform modules | One application on every platform, instead of a separate app per OS. Tauri provides windows, tray, updater and mobile targets |
-| 2026-10-29 | Build order: Linux, macOS, Windows, Android, iOS | Linux is the maintainer's daily platform and has no comparable product |
-| 2026-10-29 | First release on each platform includes autocomplete and Flow Draft | Both features from the start |
+| 2026-10-30 | Build order: Linux first, Windows and Android alongside, macOS and iOS later | Linux is the maintainer's daily platform and has no comparable product; Windows and Android have test machines now, macOS and iOS do not |
+| 2026-10-29 | First release on each platform includes autocomplete and Reply & rewrite | Both features from the start |
 | 2026-10-30 | Defaults: Auto length; Tab, backtick, Alt+→; setup asks local or key; 16 GB local-model floor | See product.md |
 | 2026-10-29 | Linux through the input method | Wayland reveals the cursor and keys only to input methods |
 | 2026-10-30 | On Wayland, the app is the input method itself (`zwp_input_method_v2`), with no fcitx5 or IBus plugin | All Rust, no socket or second process, nothing to install system-wide; niri and other wlroots- and Smithay-based compositors support it |

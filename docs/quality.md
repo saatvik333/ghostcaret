@@ -1,8 +1,8 @@
-# open-flowtype quality bar
+# Ghostcaret quality bar
 
 Status: draft, 2026-10-30. This is the threshold every release must meet. [product.md](product.md) says what the product does and [architecture.md](architecture.md) says how it is built. This document says how good each part has to be, and how that is proven.
 
-open-flowtype aims to be the best predictive-typing tool on every platform it ships on. That means faster, more accurate, lighter on the machine and more private than the alternatives. "Best" is something we measure, never just claim:
+Ghostcaret aims to be the best predictive-typing tool on every platform it ships on. That means faster, more accurate, lighter on the machine and more private than the alternatives. "Best" is something we measure, never just claim:
 
 - Every target below is a number with a way to check it.
 - Every comparison with another product comes from a published, repeatable test.
@@ -27,10 +27,10 @@ Targets are measured on fixed reference machines so that results are comparable 
 | --- | --- | --- | --- |
 | Time spent in the key handler | 50 µs or less at the 99th percentile | The handler sits in front of every keystroke. macOS disables event taps whose callbacks are slow | Timestamps around the handler in a release build, under load with the model busy |
 | Last keystroke to visible suggestion, local model, warm | 100 ms or less at the median, 250 ms or less at the 95th percentile | About 100 ms is where a response feels instant ([Nielsen](https://www.nngroup.com/articles/response-times-3-important-limits/)). The average gap between keystrokes is about 240 ms ([Dhakal et al., CHI 2018](https://aaltodoc.aalto.fi/bitstreams/c175f9bb-8c83-40bc-8969-e179f4a3a6e6/download)), so a suggestion should land within a normal pause | Benchmark replay plus on-device traces |
-| open-flowtype's own overhead per request (read field, filter, build prompt, render) | 20 ms or less at the 95th percentile, local or cloud | Provider speed is outside our control; our own share is not | Traces split by stage |
+| Ghostcaret's own overhead per request (read field, filter, build prompt, render) | 20 ms or less at the 95th percentile, local or cloud | Provider speed is outside our control; our own share is not | Traces split by stage |
 | Take word, take all, show more (from the buffer) | Next frame, 16 ms or less at 60 Hz | These must feel like typing | Frame timing on the overlay |
 | Reading a field | 5 ms or less at the 95th percentile in native apps. Slow apps get a timeout and the last good reading, never a blocked keystroke | Electron and web apps can answer accessibility queries slowly | Per-app traces in the app checklist |
-| Flow Draft | First streamed text in the card as soon as the model produces it; our overhead 50 ms or less | Drafts are longer; visible progress matters more than total time | Traces |
+| Reply & rewrite | First streamed text in the card as soon as the model produces it; our overhead 50 ms or less | Drafts are longer; visible progress matters more than total time | Traces |
 
 ## Resource use
 
@@ -38,7 +38,7 @@ Targets are measured on fixed reference machines so that results are comparable 
 | --- | --- | --- |
 | CPU while not typing | Effectively zero: no polling timers, only OS events. 1 wakeup per second or fewer on average | macOS Activity Monitor idle wake-ups, `powertop` on Linux, Windows Performance Recorder |
 | Energy while typing | Reported per 1,000 suggestions on each reference machine. No release may be more than 10% worse than the previous one | Energy counters on the reference machines (powermetrics, RAPL, Windows energy estimation) |
-| Memory, model not loaded, settings closed | 100 MB or less across all of open-flowtype's processes | RSS of all processes |
+| Memory, model not loaded, settings closed | 100 MB or less across all of Ghostcaret's processes | RSS of all processes |
 | Memory, standard model loaded | Model file size plus 500 MB or less (KV cache at the default context, buffers) | RSS after warm-up and 1,000 suggestions; no growth across a 24-hour soak test |
 | Memory, small model loaded | 1.5 GB or less in total | Same |
 | Installer size, models excluded | 40 MB or less. Large GPU runtimes such as CUDA are optional downloads | Release artifact sizes |
@@ -58,11 +58,11 @@ The [benchmark](#benchmark) measures:
 
 Default configuration thresholds:
 
-1. Keystroke savings must beat every comparator that can run in the harness, at an equal or lower wrong-suggestion rate. The harness comparators are the local models published by the open-source alternatives (for example the models [Cotabby](https://github.com/FuJacob/cotabby) lists) and the previous open-flowtype release.
+1. Keystroke savings must beat every comparator that can run in the harness, at an equal or lower wrong-suggestion rate. The harness comparators are the local models published by the open-source alternatives (for example the models [Cotabby](https://github.com/FuJacob/cotabby) lists) and the previous Ghostcaret release.
 2. Keystroke savings must also beat the manual comparators in the side-by-side test below.
 3. No regression against the previous release on any language in the corpus.
 
-Any public claim that open-flowtype is better than another product must point to the benchmark report or the side-by-side results that support it.
+Any public claim that Ghostcaret is better than another product must point to the benchmark report or the side-by-side results that support it.
 
 ### Side-by-side test
 
@@ -145,7 +145,7 @@ Each platform keeps a list of about 20 apps across browser text boxes, chat, not
 - typing through a suggestion;
 - clean insertion;
 - one-step undo;
-- Flow Draft insertion;
+- Reply & rewrite insertion;
 - the latency targets above.
 
 An app that fails placement gets the card fallback, and the failure is listed in the release notes.
