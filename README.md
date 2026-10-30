@@ -8,9 +8,25 @@ It can also draft a reply to the conversation on screen, or rewrite text you've 
 
 ## Status
 
-In development. Nothing is released yet and there's nothing to install.
+In development. There's no release yet, but it runs end to end on my machine: niri 26.04, with a local model on the CPU. The first measurements are in [docs/quality.md](docs/quality.md#where-the-build-stands), and some of them still miss their targets.
 
-Linux comes first, starting with niri. On Wayland, Ghostcaret is itself the input method (`zwp_input_method_v2`), so compositors that support that protocol should work too, but only niri has been tested. Windows is being built alongside it; macOS comes later.
+Linux comes first. On Wayland, Ghostcaret is itself the input method (`zwp_input_method_v2`), so other compositors with that protocol should work too, but only niri has been tested. Firefox works as it is; Chrome needs `--enable-wayland-ime --wayland-text-input-version=3`. Windows is built and waiting for its first test on a real Windows machine; macOS comes later.
+
+## Build from source (Linux)
+
+You need Rust, [bun](https://bun.sh), CMake and a C++ compiler, plus the GTK/WebKit libraries Tauri uses:
+
+- Arch: `webkit2gtk-4.1 gtk3 libayatana-appindicator librsvg libxkbcommon wayland fontconfig`
+- Debian/Ubuntu: `libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libxkbcommon-dev libwayland-dev libfontconfig-dev libdbus-1-dev`
+
+Then:
+
+```sh
+cd app && bun install && bun run build && cd ..
+cargo run --release -p ghostcaret
+```
+
+The first run walks you through picking a local model (it downloads and checks it) or adding an API key. Stop fcitx5 or IBus first: only one input method can be active at a time. Bug reports and app notes go in [Discussions](https://github.com/saatvik333/ghostcaret/discussions).
 
 Most of the code is written with AI coding agents under my direction.
 

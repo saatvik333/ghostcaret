@@ -1,6 +1,6 @@
 # Ghostcaret architecture
 
-Status: in development, 2026-10-30. The workspace and the shared contracts exist; the components are being built. The product behaviour this design must deliver is in [product.md](product.md), and the measured targets it must meet are in [quality.md](quality.md).
+Status: in development, 2026-10-30. Every component described here is built; the Linux app runs end to end on niri, and the Windows app is built but not yet tested on Windows. The product behaviour this design must deliver is in [product.md](product.md), and the measured targets it must meet, with where the build stands, are in [quality.md](quality.md).
 
 ## Overview
 

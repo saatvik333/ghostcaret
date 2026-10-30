@@ -63,7 +63,7 @@
 <main id="main">
   <div class="wrap hero" id="top">
     <div class="hero-copy">
-      <p class="status"><span class="status-dot" aria-hidden="true"></span><span>In development. Nothing runs end to end yet, and there is nothing to download. Status as of <time datetime="{{statusDate}}">{{statusDateLong}}</time>.</span></p>
+      <p class="status"><span class="status-dot" aria-hidden="true"></span><span>In development. It runs end to end on my Linux machine, but there's no release to download yet. Status as of <time datetime="{{statusDate}}">{{statusDateLong}}</time>.</span></p>
       <h1>{{headline}}<span class="caret" aria-hidden="true"></span><span class="ghost-line">{{headlineGhost}}</span></h1>
       <p class="lede">I'm building {{name}}. It's designed to suggest the rest of what you are typing as faint text at your cursor. Tab takes the next word, the backtick key takes all of it, and if you keep typing it steps aside.</p>
       <p class="lede-2">You pick the model: one that runs on your own machine, or your own API key. {{#if licensePublished}}It is free and open source under {{license}}, with no account and no telemetry.{{else}}It is meant to be free, with no account and no telemetry, and it will be open source under {{license}}.{{/if}} {{#if repoUrl}}The source is on <a href="{{repoUrl}}">GitHub</a>.{{else}}The source is not public yet.{{/if}} Linux (Wayland) comes first.</p>
@@ -124,7 +124,7 @@
   <section class="section wrap" id="how" aria-labelledby="how-title">
     <h2 id="how-title">How it works</h2>
     <div class="body prose">
-      <p>This describes the design. Nothing runs end to end yet, so none of it has been tested.</p>
+      <p>This is how it works on my niri setup today. It hasn't been tested on other machines yet.</p>
       <p>After a short pause in your typing, a suggestion appears after the cursor, in the field's own font where the platform allows it. If the letters you type next match it, it gets shorter instead of starting over. Anything else removes it: a different letter, moving the cursor, clicking, switching apps or Esc.</p>
 
       <h3>Keys</h3>
@@ -196,13 +196,13 @@
   <section class="section wrap" id="platforms" aria-labelledby="platforms-title">
     <h2 id="platforms-title">Platforms and status</h2>
     <div class="body">
-      <p class="prose-p">Nothing is released and nothing runs end to end yet, so each card below is the design for that platform. Linux (Wayland) comes first. Windows is in development too, and macOS comes later.</p>
+      <p class="prose-p">Nothing is released yet. Linux (Wayland) comes first and runs end to end on niri. Windows is built and waiting for its first test on a real Windows machine, and macOS comes later.</p>
       <div class="cards">
         <article class="card">
           <h3>Linux (Wayland)</h3>
           <p class="tag tag-dev">In development</p>
-          <p>{{name}} is designed as the input method itself, so the suggestion appears in a small panel at the cursor. That needs a compositor that supports the Wayland input-method protocol. niri 26.04 does, and it is what I'm building on. The design also lists sway, Hyprland, river and labwc, but none of them is tested yet. KDE Plasma, GNOME and X11 come later.</p>
-          <p>Only one input method can be active, so it can't run next to fcitx5 or IBus. Apps need <code>text-input-v3</code>, and I expect Chromium and Electron apps to need <code>--enable-wayland-ime</code>.</p>
+          <p>{{name}} is the input method itself, so the suggestion appears in a small panel at the cursor. That needs a compositor that supports the Wayland input-method protocol. niri 26.04 does, and it's what I test on. Other compositors with that protocol should work too, but only niri is tested so far. KDE Plasma, GNOME and X11 come later.</p>
+          <p>Only one input method can be active, so it can't run next to fcitx5 or IBus. Firefox works as it is; Chrome needs <code>--enable-wayland-ime --wayland-text-input-version=3</code>.</p>
         </article>
         <article class="card">
           <h3>Windows</h3>
@@ -220,8 +220,8 @@
         <h3>What a release has to meet</h3>
       </div>
       <div class="note" role="note">
-        <p class="note-title">Targets, not measurements</p>
-        <p>These are the numbers I want a release to meet. I haven't measured any of them, because nothing runs end to end yet, and the reference machines for Linux and Windows aren't chosen. A release that misses one doesn't ship.</p>
+        <p class="note-title">Targets, and where it stands</p>
+        <p>These are the numbers a release has to meet. The first measurements, on my laptop and not on a reference machine, miss some of them: a suggestion takes about 240 ms at the median with a small local model on the CPU. A release that misses one doesn't ship. The current numbers are in the <a href="{{repoUrl}}/blob/master/docs/quality.md#where-the-build-stands">quality doc</a>.</p>
       </div>
       <ul class="targets">
         <li><span class="num">100 ms</span><span>From your last keystroke to a visible suggestion, at the median, with a local model. 250 ms at the 95th percentile.</span></li>
@@ -240,7 +240,7 @@
       <p class="prose-p">Several tools already complete text inline on macOS, on Windows and in the browser. The table lists what each one says on its own pages. It says nothing about how well any of them predict, and I have no measurements for {{name}} yet.</p>
       <p class="scroll-hint">The table scrolls sideways on narrow screens.</p>
       {{{comparisonTable}}}
-      <p class="fine table-note">Prices and features from each vendor's own pages, {{comparedOnLong}}. They change, so check the linked page before relying on a figure. The {{name}} row is planned: nothing runs end to end yet.</p>
+      <p class="fine table-note">Prices and features from each vendor's own pages, {{comparedOnLong}}. They change, so check the linked page before relying on a figure. The {{name}} row describes a build that isn't released yet.</p>
       <p class="prose-p">Open-source tools exist too: <a href="https://github.com/FuJacob/cotabby">Cotabby</a> (AGPL-3.0), <a href="https://github.com/johnbean393/KeyType">KeyType</a>, <a href="https://github.com/nikiomori/Pretype">Pretype</a> and <a href="https://github.com/jacobbourne/shadowtype">Shadowtype</a> (MIT) on macOS, and <a href="https://github.com/simoabid/MindFlow">MindFlow</a> (MIT, an early project for IBus) on Linux. macOS 14 and later and Windows also have prediction built in.</p>
     </div>
   </section>
@@ -263,7 +263,7 @@
     <div class="body prose">
       <details>
         <summary>Can I download it?</summary>
-        <p>No. Nothing runs end to end yet.</p>
+        <p>Not yet. It runs on my machine; the first test builds go to early testers.</p>
       </details>
       <details>
         <summary>What will it cost?</summary>
