@@ -2988,6 +2988,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "oft-bench"
+version = "0.1.0"
+dependencies = [
+ "oft-engine",
+ "oft-local",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "unicode-segmentation",
+ "ureq",
+]
+
+[[package]]
 name = "oft-cloud"
 version = "0.1.0"
 dependencies = [
