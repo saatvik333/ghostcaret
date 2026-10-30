@@ -66,6 +66,8 @@ unicode-segmentation = "1"
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 wayland-server = "0.31"
 wayland-protocols-misc = { version = "0.3", features = ["server"] }
+# A stand-in message bus for the D-Bus connection test.
+zbus = { version = "5", default-features = false, features = ["blocking-api", "async-io", "p2p"] }
 
 [lints]
 workspace = true

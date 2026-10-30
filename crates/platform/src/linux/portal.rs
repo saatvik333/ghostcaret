@@ -1,6 +1,6 @@
 //! The desktop's light or dark preference from the XDG settings portal.
 
-use zbus::blocking::{Connection, Proxy};
+use zbus::blocking::Proxy;
 use zbus::zvariant::{OwnedValue, Value};
 
 const NAMESPACE: &str = "org.freedesktop.appearance";
@@ -12,7 +12,7 @@ pub(crate) struct ColorScheme {
 
 impl ColorScheme {
     pub fn connect() -> zbus::Result<ColorScheme> {
-        let conn = Connection::session()?;
+        let conn = super::bus::session()?;
         let proxy = Proxy::new_owned(
             conn,
             "org.freedesktop.portal.Desktop",

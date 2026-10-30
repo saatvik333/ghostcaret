@@ -25,6 +25,7 @@
 
 mod apps;
 mod atspi;
+mod bus;
 mod commits;
 mod field;
 mod keys;

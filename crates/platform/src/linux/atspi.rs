@@ -59,14 +59,14 @@ const EMBEDDED: char = '\u{FFFC}';
 
 /// Connects to the accessibility bus, turning accessibility on first.
 fn a11y_bus() -> zbus::Result<Connection> {
-    let session = Connection::session()?;
+    let session = super::bus::session()?;
     let bus = Proxy::new(&session, "org.a11y.Bus", "/org/a11y/bus", "org.a11y.Bus")?;
     let status = Proxy::new(&session, "org.a11y.Bus", "/org/a11y/bus", "org.a11y.Status")?;
     if !status.get_property::<bool>("IsEnabled").unwrap_or(false) {
         status.set_property("IsEnabled", true)?;
     }
     let address: String = bus.call("GetAddress", &())?;
-    zbus::blocking::connection::Builder::address(address.as_str())?.build()
+    super::bus::connect(&address.parse()?)
 }
 
 /// An accessible object: its owner's bus name and object path, `(so)` on
