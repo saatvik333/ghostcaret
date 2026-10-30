@@ -1,6 +1,6 @@
 [package]
 name = "oft-runtime"
-description = "The runtime that drives the engine controller: worker threads, timers, models, stores. Shared by the desktop app and the Android keyboard"
+description = "The runtime that drives the engine controller: worker threads, timers, models, stores"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -26,7 +26,7 @@ log.workspace = true
 libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.60", features = ["Win32_System_Time"] }
+windows-sys = { version = "0.60", features = ["Win32_System_SystemServices", "Win32_System_Time"] }
 
 [lints]
 workspace = true

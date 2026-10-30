@@ -5,8 +5,7 @@
 //! - Windows: UI Automation, a low-level keyboard hook, a layered overlay
 //!   window and `SendInput`.
 //!
-//! Android and iOS host the engine inside their keyboard components and do
-//! not use [`start`].
+//! macOS is next; its backend arrives behind the same [`start`] entry point.
 
 use std::sync::Arc;
 
@@ -19,10 +18,8 @@ mod gate;
 pub mod latency;
 #[cfg(target_os = "linux")]
 pub mod linux;
-// The Windows and Android modules' pure helpers also build on other hosts
-// for their tests.
-#[cfg(any(target_os = "android", test))]
-pub mod android;
+// The Windows module's pure helpers also build on other hosts for their
+// tests.
 #[cfg(any(target_os = "windows", test))]
 pub mod windows;
 

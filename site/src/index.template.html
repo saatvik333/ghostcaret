@@ -160,7 +160,7 @@
 
       <h3>{{replyName}}</h3>
       <p>Tap the right Alt key on its own. In a chat or email reply box, {{name}} reads the visible conversation and offers three short directions, like “accept and suggest Tuesday”, plus a field for your own. Picking one writes a draft into a preview card, and you accept it into the text box, edit the direction or close the card. With text selected, the same key opens a card with Fix, Rephrase, Shorten, Expand, Translate and Change tone, plus actions you define. Accepting replaces the selection, and one undo brings the original back.</p>
-      <p>It shows exactly what will be inserted, and it never sends anything or presses Return. If it can't read the conversation it says so, and you can type a direction yourself. Reading a screenshot is off by default. On phones, keyboards can't see the rest of the screen, so replies use the text in the field, your selection and, if you allow it, the clipboard.</p>
+      <p>It shows exactly what will be inserted, and it never sends anything or presses Return. If it can't read the conversation it says so, and you can type a direction yourself. Reading a screenshot is off by default.</p>
     </div>
   </section>
 
@@ -178,7 +178,7 @@
           <p>Pick a provider: any OpenAI-compatible endpoint (OpenAI, OpenRouter, Groq, Together, Ollama, LM Studio, llama-server, vLLM and similar), Anthropic, or Gemini. Paste the key and test it with one request. Keys go in the system keychain. Cloud use shows a request counter, with an optional daily cap.</p>
         </div>
       </div>
-      <p>Autocomplete and replies each have their own model setting, so a local model for one and a key for the other is fine. On iOS the keyboard extension has too little memory for a local model, so there it will use a key only.</p>
+      <p>Autocomplete and replies each have their own model setting, so a local model for one and a key for the other is fine.</p>
 
       <h3>What leaves your machine</h3>
       <ul>
@@ -196,7 +196,7 @@
   <section class="section wrap" id="platforms" aria-labelledby="platforms-title">
     <h2 id="platforms-title">Platforms and status</h2>
     <div class="body">
-      <p class="prose-p">Nothing is released and nothing runs end to end yet, so each card below is the design for that platform. Linux (Wayland) comes first. Windows and Android are in development too, and macOS and iOS come later.</p>
+      <p class="prose-p">Nothing is released and nothing runs end to end yet, so each card below is the design for that platform. Linux (Wayland) comes first. Windows is in development too, and macOS comes later.</p>
       <div class="cards">
         <article class="card">
           <h3>Linux (Wayland)</h3>
@@ -210,19 +210,9 @@
           <p>Faint text drawn at the cursor. It can't reach apps running as administrator unless {{name}} runs elevated as well.</p>
         </article>
         <article class="card">
-          <h3>Android</h3>
-          <p class="tag tag-dev">In development</p>
-          <p>A keyboard of its own: you switch to it, and suggestions appear in it. Keyboards can't read the rest of the screen, so replies work from the field text, the selection and, optionally, the clipboard.</p>
-        </article>
-        <article class="card">
           <h3>macOS</h3>
           <p class="tag tag-later">Later</p>
           <p>Faint text drawn at the cursor. It needs the Accessibility permission and pauses while another app holds Secure Input. Where a browser hides the cursor position, a card above the field is used instead.</p>
-        </article>
-        <article class="card">
-          <h3>iOS and iPadOS</h3>
-          <p class="tag tag-later">Later</p>
-          <p>A keyboard extension that uses a cloud key only, because extensions have too little memory for a local model. It needs Full Access so the keyboard can reach your provider.</p>
         </article>
       </div>
 
@@ -251,14 +241,14 @@
       <p class="scroll-hint">The table scrolls sideways on narrow screens.</p>
       {{{comparisonTable}}}
       <p class="fine table-note">Prices and features from each vendor's own pages, {{comparedOnLong}}. They change, so check the linked page before relying on a figure. The {{name}} row is planned: nothing runs end to end yet.</p>
-      <p class="prose-p">Open-source tools exist too: <a href="https://github.com/FuJacob/cotabby">Cotabby</a> (AGPL-3.0), <a href="https://github.com/johnbean393/KeyType">KeyType</a>, <a href="https://github.com/nikiomori/Pretype">Pretype</a> and <a href="https://github.com/jacobbourne/shadowtype">Shadowtype</a> (MIT) on macOS, and <a href="https://github.com/simoabid/MindFlow">MindFlow</a> (MIT, an early project for IBus) on Linux. macOS 14 and later, Windows and phone keyboards also have prediction built in.</p>
+      <p class="prose-p">Open-source tools exist too: <a href="https://github.com/FuJacob/cotabby">Cotabby</a> (AGPL-3.0), <a href="https://github.com/johnbean393/KeyType">KeyType</a>, <a href="https://github.com/nikiomori/Pretype">Pretype</a> and <a href="https://github.com/jacobbourne/shadowtype">Shadowtype</a> (MIT) on macOS, and <a href="https://github.com/simoabid/MindFlow">MindFlow</a> (MIT, an early project for IBus) on Linux. macOS 14 and later and Windows also have prediction built in.</p>
     </div>
   </section>
 
   <section class="section wrap" id="testers" aria-labelledby="testers-title">
     <h2 id="testers-title">Early testers</h2>
     <div class="body prose">
-      <p>There is nothing to test yet. If you would try early builds on Linux, Windows or Android once they exist, tell me your operating system (and your compositor, on Linux) and the apps you type in most. That decides which apps I test first.</p>
+      <p>There is nothing to test yet. If you would try early builds on Linux or Windows once they exist, tell me your operating system (and your compositor, on Linux) and the apps you type in most. That decides which apps I test first.</p>
       <p class="actions">
         {{#unless testerIsX}}<a class="btn btn-primary" href="{{testerHref}}">Become an early tester</a>
         <a class="btn btn-secondary" href="{{xUrl}}">Follow the build on X</a>{{else}}<a class="btn btn-primary" href="{{xUrl}}">Follow the build on X</a>{{/unless}}

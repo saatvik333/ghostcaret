@@ -124,8 +124,6 @@
       </p>
     {:else if os === 'macos'}
       <p>Ghostcaret needs the Accessibility permission to read the field you type in and to insert accepted text.</p>
-    {:else}
-      <p>Enable the Ghostcaret keyboard in the system settings, then switch to it in any text field.</p>
     {/if}
     <p>
       It never reads password fields, does not keep a log of your keys, and sends nothing anywhere unless you add a cloud key.

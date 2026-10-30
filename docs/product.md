@@ -2,7 +2,7 @@
 
 Status: draft. Decisions recorded here were agreed on 2026-10-29 and 2026-10-30. Nothing is built yet.
 
-Ghostcaret suggests the rest of what you are typing, in any text field, on every desktop and mobile platform. The suggestion appears as faint text at your cursor. You can take the next word, take all of it, ask for more, or keep typing and ignore it. It can also draft a reply to the conversation on screen, or rewrite text you have selected.
+Ghostcaret suggests the rest of what you are typing, in any text field on your desktop. The suggestion appears as faint text at your cursor. You can take the next word, take all of it, ask for more, or keep typing and ignore it. It can also draft a reply to the conversation on screen, or rewrite text you have selected.
 
 It is free and open source under MPL-2.0. You choose the model: a local model that runs on your own machine, or your own API key for a cloud provider. There is no account, no telemetry and no paid tier.
 
@@ -54,14 +54,14 @@ These rewrite or dictate rather than complete inline, but they are what many peo
 | [KeyType](https://github.com/johnbean393/KeyType), [Pretype](https://github.com/nikiomori/Pretype), [Shadowtype](https://github.com/jacobbourne/shadowtype) | MIT | macOS | Local |
 | [MindFlow](https://github.com/simoabid/MindFlow) | MIT | Linux (IBus) | Gemini; early project |
 
-Operating systems also ship simpler prediction of their own: [inline predictive text](https://support.apple.com/guide/mac-help/mchlp2299/mac) on macOS 14 and later, [text suggestions](https://support.microsoft.com/en-us/accessibility/windows/enable-text-suggestions-in-windows) on Windows (word choices above the cursor, picked with the mouse or arrow keys), and phone keyboards such as Gboard. [quality.md](quality.md#side-by-side-test) compares Ghostcaret against these as well.
+Operating systems also ship simpler prediction of their own: [inline predictive text](https://support.apple.com/guide/mac-help/mchlp2299/mac) on macOS 14 and later, and [text suggestions](https://support.microsoft.com/en-us/accessibility/windows/enable-text-suggestions-in-windows) on Windows (word choices above the cursor, picked with the mouse or arrow keys). [quality.md](quality.md#side-by-side-test) compares Ghostcaret against these as well.
 
 ### Where Ghostcaret differs
 
 Ghostcaret is in development, so everything in this section is planned, not shipped. Whether it predicts better than these products is a question for the benchmark in [quality.md](quality.md), and no such claim is made until that report exists.
 
 - Price: free, with no word or reply limits. The paid inline tools above start at $34.99 a year (TypeSeer); HyperWrite's top plan is $348 a year billed yearly or $44.99 a month billed monthly.
-- Platforms: Linux first, then Windows and Android; macOS and iOS later. None of the paid tools checked has a Linux app. The two Chrome extensions work in Chrome on Linux, but only inside the browser. TypeSeer is the only inline tool with native apps for more than one desktop OS.
+- Platforms: Linux first, then Windows; macOS later. None of the paid tools checked has a Linux app. The two Chrome extensions work in Chrome on Linux, but only inside the browser. TypeSeer is the only inline tool with native apps for more than one desktop OS.
 - Your choice of model: a local model on your machine, or your own key for any OpenAI-compatible endpoint, Anthropic or Gemini, for both autocomplete and replies. Among the pricing pages read, only FlowIn's one-time license (for replies) and Superwhisper Pro (for dictation) list own-key use.
 - Open source: MPL-2.0, so anyone can check what the app does with their keystrokes. None of the paid tools checked is open source.
 - No account and no telemetry. Several of the tools above collect usage analytics by default.
@@ -69,7 +69,7 @@ Ghostcaret is in development, so everything in this section is planned, not ship
 
 ## First release
 
-Each platform's first release ships autocomplete and Reply & rewrite together. Mobile limits are listed under [Platforms](#platforms).
+Each platform's first release ships autocomplete and Reply & rewrite together.
 
 ### Autocomplete
 
@@ -115,7 +115,7 @@ The engine writes a little further than it shows. Taking a word or asking for mo
 | Reply & rewrite | Tap the right Alt key (right Option on macOS) on its own | Holding it as a modifier keeps its normal meaning |
 | Pause or resume | No default | Can be set in settings; the tray menu always offers pause |
 
-Every key can be changed, and the settings refuse a binding that clashes with another action or a reserved system shortcut. On phones the suggestion appears in the keyboard's suggestion strip instead. The touch controls are designed in the mobile phase.
+Every key can be changed, and the settings refuse a binding that clashes with another action or a reserved system shortcut.
 
 ### Alternatives
 
@@ -199,8 +199,6 @@ Stats are kept on the device: words accepted, keystrokes saved, and acceptance r
 | Linux (Wayland) | Ghostcaret is the input method; the suggestion appears in a small panel at the cursor | None beyond running it; the screenshot portal only for OCR | Needs a compositor with the Wayland input-method protocol (niri, sway, Hyprland, river, labwc and others); KDE Plasma, GNOME and X11 come later. Cannot run alongside fcitx5 or IBus. Apps must support `text-input-v3`; Chromium and Electron need `--enable-wayland-ime` ([fcitx5 Wayland guide](https://fcitx-im.org/wiki/Using_Fcitx_5_on_Wayland)) |
 | macOS | Faint text drawn at the cursor | Accessibility; Screen Recording only for OCR | Paused while another app holds Secure Input (Ghostcaret names the app when macOS reveals it). Browsers that hide the cursor position get a card above the field |
 | Windows | Faint text drawn at the cursor | None beyond install | Cannot reach apps running as administrator unless Ghostcaret also runs elevated |
-| Android | In Ghostcaret's own keyboard | Enable the keyboard | The user must switch to this keyboard. Keyboards cannot read the rest of the screen, so replies use the field text, the selection and, optionally, the clipboard |
-| iOS / iPadOS | In Ghostcaret's keyboard extension | Enable the keyboard, and turn on Full Access so it can reach the cloud provider | Cloud key only: keyboard extensions are limited to tens of megabytes of memory, too little for a local model. Same conversation limit as Android |
 
 ## First run
 

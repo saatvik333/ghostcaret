@@ -4,10 +4,5 @@ node_modules/
 /site/dist/
 *.gguf
 .DS_Store
-/app/gen/android/.gradle/
-/app/gen/android/build/
-/app/gen/android/app/build/
-/app/gen/android/local.properties
-/app/gen/android/**/jniLibs/
 # Marketing plans, account notes and drafts stay local.
 /marketing/

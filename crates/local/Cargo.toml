@@ -26,10 +26,6 @@ directories = "6"
 sha2 = "0.11"
 ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 
-[target.'cfg(target_os = "android")'.dependencies]
-# One self-contained JNI library: link the C++ runtime statically.
-llama-cpp-sys-2 = { version = "=0.1.160", default-features = false, features = ["static-stdcxx"] }
-
 [dev-dependencies]
 proptest = "1"
 

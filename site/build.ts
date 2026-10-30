@@ -106,7 +106,7 @@ type Row = { name: string; url: string; price: string; platforms: string; linux:
 const comparison = (await Bun.file(join(root, "src", "comparison.json")).json()) as { readOn: string; rows: Row[] };
 const ours = {
   price: "Free, with no word or reply limits",
-  platforms: "Linux (Wayland) first, then Windows and Android; macOS and iOS later",
+  platforms: "Linux (Wayland) first, then Windows; macOS later",
   linux: "Linux: the first target",
   openSource: cfg.licensePublished ? `Yes, ${cfg.license}` : `${cfg.license}, planned`,
   localModel: "Yes, any GGUF model",

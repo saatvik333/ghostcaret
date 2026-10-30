@@ -157,9 +157,8 @@ fn utc_offset_minutes(ms: u64) -> i64 {
 
 #[cfg(windows)]
 fn utc_offset_minutes(_ms: u64) -> i64 {
-    use windows_sys::Win32::System::Time::{
-        GetTimeZoneInformation, TIME_ZONE_ID_DAYLIGHT, TIME_ZONE_INFORMATION,
-    };
+    use windows_sys::Win32::System::SystemServices::TIME_ZONE_ID_DAYLIGHT;
+    use windows_sys::Win32::System::Time::{GetTimeZoneInformation, TIME_ZONE_INFORMATION};
     // SAFETY: all-zero is a valid TIME_ZONE_INFORMATION, and `tz` is a valid out-pointer.
     let mut tz: TIME_ZONE_INFORMATION = unsafe { std::mem::zeroed() };
     let kind = unsafe { GetTimeZoneInformation(&mut tz) };

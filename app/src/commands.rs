@@ -60,7 +60,6 @@ pub struct Overview {
     pub setup: Step,
     pub ram_bytes: Option<u64>,
     pub local_available: bool,
-    #[cfg(desktop)]
     pub status: oft_runtime::StatusView,
 }
 
@@ -83,7 +82,6 @@ pub async fn overview(state: State<'_, Arc<AppState>>) -> Result<Overview> {
             setup: state.setup_step(),
             ram_bytes: memory::total_bytes(),
             local_available: cfg!(feature = "local"),
-            #[cfg(desktop)]
             status: state.runtime.status(),
             settings,
         })
@@ -120,7 +118,6 @@ pub async fn save_settings(
             SaveError::Io(e) => CmdError::new(format!("Could not save settings: {e}")),
         })?;
         state.replace_settings(settings);
-        #[cfg(desktop)]
         state.runtime.send(oft_runtime::Command::SettingsChanged);
         crate::refresh_tray(&app, &state);
         Ok(())
@@ -155,9 +152,7 @@ pub async fn set_api_key(
     blocking(move || {
         let key = checked_key(&key)?;
         keychain::set(&provider, key).map_err(|e| CmdError::at("key", e.to_string()))?;
-        #[cfg(desktop)]
         state.runtime.send(oft_runtime::Command::ModelsChanged);
-        let _ = state;
         Ok(())
     })
     .await
@@ -185,7 +180,6 @@ pub async fn remove_provider(
             .save(&settings)
             .map_err(|e| CmdError::new(e.to_string()))?;
         state.replace_settings(settings.clone());
-        #[cfg(desktop)]
         state.runtime.send(oft_runtime::Command::SettingsChanged);
         crate::refresh_tray(&app, &state);
         Ok(settings)
@@ -342,7 +336,6 @@ pub async fn set_setup_step(state: State<'_, Arc<AppState>>, step: Step) -> Resu
     .await
 }
 
-#[cfg(desktop)]
 #[tauri::command]
 pub fn pause(
     state: State<'_, Arc<AppState>>,
@@ -354,13 +347,11 @@ pub fn pause(
         .send(oft_runtime::Command::Pause(scope, length));
 }
 
-#[cfg(desktop)]
 #[tauri::command]
 pub fn resume(state: State<'_, Arc<AppState>>, app: Option<String>) {
     state.runtime.send(oft_runtime::Command::Resume(app));
 }
 
-#[cfg(desktop)]
 #[tauri::command]
 pub fn timings(state: State<'_, Arc<AppState>>) -> Vec<oft_runtime::Timing> {
     state.runtime.timings()
@@ -538,7 +529,6 @@ pub mod local_models {
                                 total: p.total,
                             },
                         );
-                        #[cfg(desktop)]
                         if p.total > 0 {
                             let f = p.downloaded as f32 / p.total as f32;
                             state.runtime.send(oft_runtime::Command::Download(Some(f)));
@@ -547,7 +537,6 @@ pub mod local_models {
                 };
                 let result = state.models.download(entry, &mut on_progress, &cancel);
                 *state.download.lock().unwrap_or_else(|e| e.into_inner()) = None;
-                #[cfg(desktop)]
                 state.runtime.send(oft_runtime::Command::Download(None));
                 let cancelled = cancel.is_cancelled();
                 let error = result.err().filter(|_| !cancelled).map(|e| e.to_string());
@@ -602,14 +591,12 @@ pub mod local_models {
                     .save(&settings)
                     .map_err(|e| CmdError::new(e.to_string()))?;
                 state.replace_settings(settings);
-                #[cfg(desktop)]
                 state.runtime.send(oft_runtime::Command::SettingsChanged);
             }
             state
                 .models
                 .delete(entry)
                 .map_err(|e| CmdError::new(format!("Could not delete the model: {e}")))?;
-            #[cfg(desktop)]
             state.runtime.send(oft_runtime::Command::ModelsChanged);
             crate::refresh_tray(&app, &state);
             Ok(())

@@ -1,5 +1,4 @@
-//! Where Ghostcaret keeps its files: `ProjectDirs::from("", "", "ghostcaret")`
-//! on desktop, the app's sandbox directories on mobile.
+//! Where Ghostcaret keeps its files: `ProjectDirs::from("", "", "ghostcaret")`.
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -13,14 +12,11 @@ struct Dirs {
 static DIRS: OnceLock<Dirs> = OnceLock::new();
 
 /// Sets the directories once at startup. Returns false if the OS reports none.
-pub fn init(mobile: Option<(PathBuf, PathBuf)>) -> bool {
-    let dirs = match mobile {
-        Some((config, data)) => Some(Dirs { config, data }),
-        None => directories::ProjectDirs::from("", "", "ghostcaret").map(|d| Dirs {
-            config: d.config_dir().to_path_buf(),
-            data: d.data_dir().to_path_buf(),
-        }),
-    };
+pub fn init() -> bool {
+    let dirs = directories::ProjectDirs::from("", "", "ghostcaret").map(|d| Dirs {
+        config: d.config_dir().to_path_buf(),
+        data: d.data_dir().to_path_buf(),
+    });
     match dirs {
         Some(d) => DIRS.set(d).is_ok() || DIRS.get().is_some(),
         None => false,

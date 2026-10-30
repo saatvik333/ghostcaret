@@ -18,8 +18,6 @@ Targets are measured on fixed reference machines so that results are comparable 
 | --- | --- |
 | macOS | Apple M1 with 16 GB |
 | Linux and Windows | A 16 GB laptop with an integrated GPU (to be chosen; see open questions) |
-| Android | A mid-range phone from the last two years (to be chosen) |
-| iOS | A recent iPhone with cloud provider only |
 
 ## Responsiveness
 
@@ -66,7 +64,7 @@ Any public claim that Ghostcaret is better than another product must point to th
 
 ### Side-by-side test
 
-Closed products cannot run inside the harness, so they are compared by hand, using each product's best publicly available plan. The comparators are FlowIn, Cotypist, TypeSeer and macOS inline predictive text on macOS; TypeSeer, Lightkey and Windows text suggestions on Windows; and Gboard on Android. The list follows [product.md](product.md#comparable-products) as products appear or disappear.
+Closed products cannot run inside the harness, so they are compared by hand, using each product's best publicly available plan. The comparators are FlowIn, Cotypist, TypeSeer and macOS inline predictive text on macOS; and TypeSeer, Lightkey and Windows text suggestions on Windows. The list follows [product.md](product.md#comparable-products) as products appear or disappear.
 
 1. A fixed set of typing tasks (reply to an email, a chat exchange, a document paragraph, a message in a terminal chat tool) is typed by a script, or by a person following a script.
 2. Keystrokes, accepted suggestions, wrong suggestions and time are counted.
@@ -107,7 +105,7 @@ Tests:
 - Everything that parses outside input is fuzzed: provider responses, the Linux plugin socket protocol, config files, model manifests.
 - Tests wait on events, never on fixed sleeps, and never depend on paths from one developer's machine.
 - Microbenchmarks cover the key gate, prompt building and the stop rules. An engine latency benchmark runs on a reference runner, and CI fails if the 95th percentile regresses by more than 10%.
-- Each release gets a 24-hour soak test for memory growth. The C and C++ code underneath (llama.cpp and the OS shims) is also run under sanitizers in CI.
+- Each release gets a 24-hour soak test for memory growth. The C and C++ code underneath (llama.cpp) is also run under sanitizers in CI.
 
 Supply chain:
 
@@ -164,6 +162,6 @@ A release ships only when all of these pass:
 
 ## Open questions
 
-- The exact reference machines for Linux, Windows and Android.
+- The exact reference machines for Linux and Windows.
 - The benchmark corpora and their licenses.
 - The side-by-side task set.

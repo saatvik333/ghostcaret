@@ -1,11 +1,11 @@
 //! Which model serves each feature, built from the settings.
 //!
 //! Each feature has a slot. A cloud provider is built with its key on a
-//! helper thread, because reading the key may wait on a keychain prompt or
-//! call into the JVM, and its connection is warmed when a text field gains
-//! focus. The local model loads on the local-model thread, with progress,
-//! when a text field gains focus or on the first request that needs it;
-//! both features share it when they choose the same file. It is unloaded
+//! helper thread, because reading the key may wait on a keychain prompt, and
+//! its connection is warmed when a text field gains focus. The local model
+//! loads on the local-model thread, with progress, when a text field gains
+//! focus or on the first request that needs it; both features share it when
+//! they choose the same file. It is unloaded
 //! after idleness, on memory pressure and when no slot uses it any more.
 //! Loads and unloads run in order on that one thread, so a model never
 //! loads while the previous one is still in memory, and the runtime thread

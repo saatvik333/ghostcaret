@@ -80,7 +80,7 @@ impl Default for Settings {
 pub enum SettingsError {
     /// The file is not valid TOML for this schema. Carries the place, never
     /// the text: TOML errors quote the offending line, and a key pasted in the
-    /// wrong place must not reach the tray, the keyboard strip or a log.
+    /// wrong place must not reach the tray or a log.
     #[error("{}", describe_parse(*line, key.as_deref()))]
     Parse {
         line: Option<usize>,

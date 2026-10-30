@@ -178,7 +178,7 @@ function start(root) {
   root.addEventListener("focusin", later);
   root.addEventListener("focusout", () => setTimeout(update, 0));
 
-  const keepFocus = (e) => e.preventDefault(); // pressing a button must not close a phone's keyboard
+  const keepFocus = (e) => e.preventDefault(); // pressing a button must not take focus out of the field
   for (const [kind, button] of Object.entries(actions)) {
     button.addEventListener("mousedown", keepFocus);
     button.addEventListener("click", () => {

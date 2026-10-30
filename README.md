@@ -10,7 +10,7 @@ It can also draft a reply to the conversation on screen, or rewrite text you've 
 
 In development. Nothing is released yet and there's nothing to install.
 
-Linux comes first, starting with niri. On Wayland, Ghostcaret is itself the input method (`zwp_input_method_v2`), so compositors that support that protocol should work too, but only niri has been tested. Windows and Android are being built alongside it; macOS and iOS come later.
+Linux comes first, starting with niri. On Wayland, Ghostcaret is itself the input method (`zwp_input_method_v2`), so compositors that support that protocol should work too, but only niri has been tested. Windows is being built alongside it; macOS comes later.
 
 Most of the code is written with AI coding agents under my direction.
 

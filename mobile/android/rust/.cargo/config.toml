@@ -1,6 +1,0 @@
-# The harness targets current arm64 phones (Armv8.6-class cores, such as the
-# Cortex-A725/A520 of the reference phone). llama.cpp picks its CPU kernels
-# from these target features, and dot-product and int8 matrix instructions
-# are what make quantized decoding fast.
-[target.aarch64-linux-android]
-rustflags = ["-C", "target-feature=+dotprod,+i8mm"]

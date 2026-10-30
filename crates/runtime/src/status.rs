@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::pause::PauseInfo;
 
-/// The status as the tray, the settings window or the keyboard strip shows it.
+/// The status as the tray or the settings window shows it.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct StatusView {
     pub kind: StatusKind,

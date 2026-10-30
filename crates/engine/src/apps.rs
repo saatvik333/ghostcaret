@@ -1,8 +1,8 @@
 //! App categories from built-in tables of Linux app ids (Wayland `app_id`,
-//! Flatpak ids), lower-case Windows executable names and Android package
-//! names. A browser, a Chromium web app, or an app the tables do not know is
-//! categorised by its window title, so Gmail in Firefox counts as email and
-//! WhatsApp Web as chat.
+//! Flatpak ids) and lower-case Windows executable names. A browser, a
+//! Chromium web app, or an app the tables do not know is categorised by its
+//! window title, so Gmail in Firefox counts as email and WhatsApp Web as
+//! chat.
 //!
 //! Code editors and password managers are off until the user turns them on
 //! ([`off_by_default`]).
@@ -58,18 +58,14 @@ fn known(id: &str) -> Option<AppCategory> {
         | "signal-desktop"
         | "org.signal.signal"
         | "signal.exe"
-        | "org.thoughtcrime.securesms"
         | "element"
         | "im.riot.riot"
         | "element.exe"
-        | "im.vector.app"
         | "com.rtosta.zapzap"
         | "whatsapp-for-linux"
         | "com.github.eneshecan.whatsappforlinux"
         | "whatsapp.exe"
         | "whatsapp.root.exe"
-        | "com.whatsapp"
-        | "com.whatsapp.w4b"
         | "org.gnome.fractal"
         | "fractal"
         | "im.dino.dino"
@@ -78,35 +74,19 @@ fn known(id: &str) -> Option<AppCategory> {
         | "teams-for-linux"
         | "ms-teams.exe"
         | "teams.exe"
-        | "com.microsoft.teams"
         | "skype.exe"
-        | "com.skype.raider"
-        | "com.google.android.apps.messaging"
-        | "com.samsung.android.messaging"
-        | "com.android.mms"
-        | "com.facebook.orca"
-        | "jp.naver.line.android"
         | "line.exe"
-        | "com.viber.voip"
         | "viber.exe"
-        | "com.tencent.mm"
         | "weixin.exe"
         | "wechat.exe"
-        | "com.kakao.talk"
         | "kakaotalk.exe"
         | "zoom"
-        | "zoom.exe"
-        | "us.zoom.videomeetings"
-        | "com.snapchat.android"
-        | "chat.revolt.app"
-        | "im.status.ethereum" => Chat,
+        | "zoom.exe" => Chat,
         // Email.
         "thunderbird"
         | "org.mozilla.thunderbird"
         | "net.thunderbird.thunderbird"
         | "thunderbird.exe"
-        | "net.thunderbird.android"
-        | "com.fsck.k9"
         | "betterbird"
         | "eu.betterbird.betterbird"
         | "evolution"
@@ -121,30 +101,21 @@ fn known(id: &str) -> Option<AppCategory> {
         | "outlook.exe"
         | "olk.exe"
         | "hxoutlook.exe"
-        | "com.microsoft.office.outlook"
-        | "com.google.android.gm"
-        | "ch.protonmail.android"
         | "me.proton.mail"
-        | "com.samsung.android.email.provider"
-        | "me.bluemail.mail"
-        | "com.readdle.spark"
         | "em.client.exe"
         | "mailclient.exe" => Email,
         // Documents and notes.
         "obsidian"
         | "md.obsidian.obsidian"
         | "obsidian.exe"
-        | "md.obsidian"
         | "logseq"
         | "com.logseq.logseq"
         | "logseq.exe"
         | "joplin"
         | "net.cozic.joplin_desktop"
         | "joplin.exe"
-        | "net.cozic.joplin"
         | "notion-app"
         | "notion.exe"
-        | "notion.id"
         | "libreoffice-writer"
         | "libreoffice"
         | "soffice"
@@ -153,10 +124,6 @@ fn known(id: &str) -> Option<AppCategory> {
         | "swriter.exe"
         | "winword.exe"
         | "onenote.exe"
-        | "com.microsoft.office.word"
-        | "com.microsoft.office.onenote"
-        | "com.google.android.apps.docs.editors.docs"
-        | "com.google.android.keep"
         | "org.gnome.texteditor"
         | "gnome-text-editor"
         | "org.gnome.gedit"
@@ -178,8 +145,6 @@ fn known(id: &str) -> Option<AppCategory> {
         | "notepad.exe"
         | "wordpad.exe"
         | "evernote.exe"
-        | "com.evernote"
-        | "com.samsung.android.app.notes"
         | "anytype"
         | "io.anytype.anytype"
         | "affine"
@@ -192,20 +157,8 @@ fn known(id: &str) -> Option<AppCategory> {
         | "com.github.xournalpp.xournalpp"
         | "org.kde.ghostwriter" => Document,
         // Launchers and search.
-        "rofi"
-        | "wofi"
-        | "fuzzel"
-        | "tofi"
-        | "anyrun"
-        | "walker"
-        | "ulauncher"
-        | "albert"
-        | "org.kde.krunner"
-        | "krunner"
-        | "launcher"
-        | "com.google.android.googlequicksearchbox"
-        | "searchhost.exe"
-        | "powertoys.run.exe"
+        "rofi" | "wofi" | "fuzzel" | "tofi" | "anyrun" | "walker" | "ulauncher" | "albert"
+        | "org.kde.krunner" | "krunner" | "launcher" | "searchhost.exe" | "powertoys.run.exe"
         | "everything.exe" => Search,
         // Terminals.
         "com.mitchellh.ghostty"
@@ -255,8 +208,7 @@ fn known(id: &str) -> Option<AppCategory> {
         | "powershell.exe"
         | "pwsh.exe"
         | "conhost.exe"
-        | "mintty.exe"
-        | "com.termux" => Terminal,
+        | "mintty.exe" => Terminal,
         // Code editors.
         "code"
         | "code-oss"
@@ -353,16 +305,6 @@ fn browser(id: &str) -> bool {
             | "helium.exe"
             | "zen.exe"
             | "librewolf.exe"
-            | "com.android.chrome"
-            | "org.mozilla.firefox_beta"
-            | "org.mozilla.fenix"
-            | "com.microsoft.emmx"
-            | "com.opera.browser"
-            | "com.sec.android.app.sbrowser"
-            | "com.vivaldi.browser"
-            | "com.duckduckgo.mobile.android"
-            | "app.vanadium.browser"
-            | "org.chromium.chrome"
     )
 }
 
@@ -389,13 +331,11 @@ fn is_password_manager(id: &str) -> bool {
             | "bitwarden"
             | "com.bitwarden.desktop"
             | "bitwarden.exe"
-            | "com.x8bit.bitwarden"
             | "enpass"
             | "enpass.exe"
             | "io.enpass.enpass"
             | "proton-pass"
             | "me.proton.pass"
-            | "proton.android.pass"
             | "proton pass.exe"
             | "org.gnome.seahorse.application"
             | "seahorse"
@@ -404,11 +344,6 @@ fn is_password_manager(id: &str) -> bool {
             | "org.kde.kwalletmanager5"
             | "kwalletmanager5"
             | "org.kde.kwalletmanager"
-            | "keepass2android.keepass2android"
-            | "com.kunzisoft.keepass.free"
-            | "com.kunzisoft.keepass.libre"
-            | "com.lastpass.lpandroid"
-            | "com.dashlane"
     )
 }
 
@@ -506,10 +441,7 @@ mod tests {
             ("winword.exe", AppCategory::Document),
             ("windowsterminal.exe", AppCategory::Terminal),
             ("code.exe", AppCategory::Code),
-            ("com.google.android.apps.messaging", AppCategory::Chat),
             ("com.Slack", AppCategory::Chat),
-            ("com.google.android.gm", AppCategory::Email),
-            ("com.termux", AppCategory::Terminal),
             ("firefox", AppCategory::Other),
             ("something-unknown", AppCategory::Other),
         ];
@@ -571,7 +503,7 @@ mod tests {
     fn code_editors_and_password_managers_are_off_by_default() {
         assert!(off_by_default(&app("code", "")));
         assert!(off_by_default(&app("org.keepassxc.keepassxc", "")));
-        assert!(off_by_default(&app("com.x8bit.bitwarden", "")));
+        assert!(off_by_default(&app("com.bitwarden.desktop", "")));
         assert!(!off_by_default(&app("firefox", "")));
         assert!(!off_by_default(&app("com.mitchellh.ghostty", "")));
     }

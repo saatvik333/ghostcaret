@@ -1,5 +1,4 @@
-//! The runtime that drives the engine's controller, shared by the desktop
-//! app and the Android keyboard.
+//! The runtime that drives the engine's controller for the desktop app.
 //!
 //! One thread owns the [`Controller`](oft_engine::controller::Controller).
 //! It feeds it backend events, model results, host commands and timer
@@ -24,7 +23,8 @@
 //!
 //! # Host interface
 //!
-//! What differs between hosts is split four ways:
+//! What the desktop app owns is split four ways, so the runtime's tests run
+//! it against a fake host and a fake backend:
 //!
 //! - [`Host`]: what the runtime asks of the host: the saved settings, API
 //!   keys, and showing the status.
@@ -33,9 +33,7 @@
 //! - [`Config`]: what the runtime runs with: the stores and, with local
 //!   inference, the model directory and load options.
 //! - The [`Backend`], made by the function passed to [`start`], which
-//!   reports [`Event`]s on the channel it is given; a backend driven from
-//!   outside, such as Android's JNI calls, reports through
-//!   [`Runtime::event`] instead.
+//!   reports [`Event`]s on the channel it is given.
 
 mod core;
 mod models;
@@ -80,8 +78,8 @@ pub trait Host: Send + Sync + 'static {
 
     /// The API key saved for the provider with this id; `Ok(None)` when there
     /// is none. Called on a helper thread while a provider is built, so it
-    /// may block on a keychain prompt or a call into the JVM. `Err` carries a
-    /// reason without the secret.
+    /// may block on a keychain prompt. `Err` carries a reason without the
+    /// secret.
     fn api_key(&self, provider: &str) -> Result<Option<String>, String>;
 
     /// The status changed. Called on the runtime thread; must return
@@ -146,8 +144,9 @@ impl Runtime {
         self.commands.clone()
     }
 
-    /// Reports a backend event, for backends driven from outside the
-    /// runtime. Never blocks.
+    /// Sends an event as the backend would, for tests with a fake backend.
+    /// Never blocks. The runtime also keeps one sender so the channel stays
+    /// open when the backend fails or drops its own.
     pub fn event(&self, event: Event) {
         let _ = self.events.send(event);
     }

@@ -6,14 +6,9 @@ Status: in development, 2026-10-30. The workspace and the shared contracts exist
 
 Ghostcaret is one Tauri 2 application, written in Rust, built for each platform. The same Rust engine runs everywhere. A Rust module for each operating system reads text, catches keys, shows suggestions and inserts text. Tauri provides the windows, tray, settings interface, updater and packaging.
 
-Two pieces need a little non-Rust code because the operating system requires it. Each is a thin shim that hands text to the Rust engine:
-
-- the Android keyboard service, in Kotlin;
-- the iOS keyboard extension, in Swift.
-
 ```mermaid
 flowchart LR
-  subgraph App["Tauri app (one per-user process on desktop)"]
+  subgraph App["Tauri app (one per-user process)"]
     UI["Web UI: settings, setup,<br/>Reply & rewrite card, alternatives"]
     TRAY[Tray, updater,<br/>model manager, keychain]
     ENG["engine (Rust): context, filter,<br/>prompts, length control,<br/>llama.cpp, providers, Reply & rewrite"]
@@ -22,7 +17,7 @@ flowchart LR
     TRAY <--> ENG
     PLAT <--> ENG
   end
-  PLAT <--> OS["OS APIs: Accessibility, UI Automation,<br/>input method, keyboard service"]
+  PLAT <--> OS["OS APIs: Accessibility, UI Automation,<br/>input method"]
   ENG -->|only if configured| CLOUD["User's provider<br/>(own key)"]
 ```
 
@@ -36,24 +31,18 @@ flowchart LR
 | `crates/platform` | Field reading, key gate, display and insertion for each OS, in modules compiled per platform |
 | `crates/render` | Software renderer for the suggestion panel and the Reply & rewrite card, shared by the Linux and Windows overlays |
 | `crates/bench` | Replay benchmark |
-| `crates/store` | On-device SQLite stores shared by the app and the keyboard: usage stats (with the daily cloud count) and style memory |
-| `crates/runtime` | The one runtime that drives the controller on every host: worker threads, timers, model loading and unloading, the daily cloud cap and the local fallback, stats and style memory, stage timings. Hosts plug in settings, keys, status display and memory pressure |
+| `crates/store` | On-device SQLite stores: usage stats (with the daily cloud count) and style memory |
+| `crates/runtime` | The one runtime that drives the controller: worker threads, timers, model loading and unloading, the daily cloud cap and the local fallback, stats and style memory, stage timings. The host plugs in settings, keys, status display and memory pressure |
 | `app/` | Tauri application: the desktop host of the runtime, tray, settings, setup, model manager, keychain access |
 | `app/ui` | Web interface for settings and setup |
-| `mobile/android` | Keyboard service (Kotlin) and its test harness, moved into the Tauri Android project once integrated |
-| `mobile/ios` | Keyboard extension (Swift), linking the engine as a static library |
 
 The engine never depends on model or OS code. The controller in `crates/engine` is a pure state machine: the runtime (`crates/runtime`) feeds it backend events, model results and timer expiries, and executes the outputs it returns. Every product rule therefore lives in one place and is tested without an OS or a model.
 
 ## Process model
 
-On the desktop, Ghostcaret runs as one process per user: the Tauri app, started at login and living in the tray. It loads the model, the engine and the platform modules. It opens no network listening ports.
+Ghostcaret runs as one process per user: the Tauri app, started at login and living in the tray. It loads the model, the engine and the platform modules. It opens no network listening ports.
 
 On Linux, the app itself is the input method. It speaks the Wayland input-method protocol (`zwp_input_method_v2`) from a dedicated thread on its own Wayland connection, so no fcitx5 or IBus plugin and no socket are involved. While a text field is active it holds a keyboard grab, handles bound keys, and forwards every other key unchanged through a virtual keyboard (`zwp_virtual_keyboard_v1`). If the app exits or crashes, the compositor drops the grab and typing continues without it.
-
-On Android, the keyboard service hosts the engine through JNI. The engine runs in the keyboard's process; the Tauri app in the same APK provides settings and setup.
-
-On iOS, the keyboard extension links the engine as a static library built without llama.cpp, because extensions have too little memory for a local model. The container app is the Tauri app. Settings are shared through an App Group, and keys through a shared keychain access group.
 
 ## Platform layer
 
@@ -64,24 +53,24 @@ Each OS module provides the same capabilities to the engine:
 | Focus watch | Focus changes: app identity, app name, window title, field identity |
 | Field read | Text before the cursor (capped), text after it (capped), the selection, the cursor rectangle in screen coordinates when known, the field kind (text, password, search, address, terminal, code, unknown), a font hint, and which reading method worked |
 | Key gate | Decides immediately whether to consume a key, using a local copy of "a suggestion is showing" and the bound keys. It never waits on the engine |
-| Display | Shows, updates and hides the suggestion: overlay, input-method text, card, or keyboard strip |
+| Display | Shows, updates and hides the suggestion: overlay, input-method text, or card |
 | Insert | Inserts text or replaces a range, and reports inserted, failed or unknown. The method is chosen per app: typed Unicode, paste with the clipboard restored, setting the value through accessibility, or an input-method commit |
 | Conversation read | The visible messages, with sender where known, for Reply & rewrite |
 | Status | Secure input, lost permission, blocked app |
 
 How each platform provides them:
 
-| | macOS | Windows | Linux (Wayland) | Android | iOS |
-| --- | --- | --- | --- | --- | --- |
-| Focus | AXObserver focus notifications and NSWorkspace app activation | UI Automation focus-changed events | Input-method `activate` and `deactivate`; app id and title of the active window from `zwlr_foreign_toplevel_manager_v1` | `onStartInput` with `EditorInfo` (package name, input type) | Keyboard extension lifecycle |
-| Field text and selection | AXUIElement value and selected range | UI Automation `TextPattern` / `TextPattern2` | `surrounding_text` (UTF-8, cursor and anchor) from the input-method protocol | `InputConnection.getTextBeforeCursor` / `getTextAfterCursor` / `getSelectedText` | `textDocumentProxy` context before and after input, selected text |
-| Cursor position | Accessibility bounds for the cursor's range | UI Automation text range bounding rectangles | Known to the compositor, which places the input-method popup and reports the cursor rectangle relative to it | Not needed: the keyboard shows the suggestion | Not needed |
-| Password fields | Secure text field role | `IsPassword` property | Content purpose `password` or `pin` | Password input types | Secure text entry |
-| Keys | `CGEventTap`. The callback must return fast, or macOS disables the tap | Low-level keyboard hook (`WH_KEYBOARD_LL`) | Input-method keyboard grab; unconsumed keys forwarded through a virtual keyboard | The keyboard's own keys | The keyboard's own keys |
-| Display | Non-activating, click-through `NSPanel` (Tauri window via [tauri-nspanel](https://github.com/ahkohd/tauri-nspanel)) | Topmost layered window that never activates and ignores the mouse, drawn by `crates/render` | Input-method popup surface at the cursor, drawn by `crates/render` | Suggestion strip | Suggestion strip |
-| Insert | Unicode keyboard events, or paste with clipboard restore | `SendInput` Unicode, or paste with clipboard restore | `delete_surrounding_text` and `commit_string` | `commitText`, `setComposingText`, `deleteSurroundingText` | `insertText`, `deleteBackward` |
-| Conversation | Accessibility tree of the window; Vision OCR fallback with Screen Recording permission | UI Automation tree; `Windows.Media.Ocr` fallback | AT-SPI over D-Bus; screenshot portal plus OCR fallback | Not available to keyboards | Not available to keyboards |
-| Secure input / blocked | `IsSecureEventInputEnabled` | Elevated windows are unreachable (UIPI) | Password purpose | Password types | Secure fields use the system keyboard |
+| | macOS | Windows | Linux (Wayland) |
+| --- | --- | --- | --- |
+| Focus | AXObserver focus notifications and NSWorkspace app activation | UI Automation focus-changed events | Input-method `activate` and `deactivate`; app id and title of the active window from `zwlr_foreign_toplevel_manager_v1` |
+| Field text and selection | AXUIElement value and selected range | UI Automation `TextPattern` / `TextPattern2` | `surrounding_text` (UTF-8, cursor and anchor) from the input-method protocol |
+| Cursor position | Accessibility bounds for the cursor's range | UI Automation text range bounding rectangles | Known to the compositor, which places the input-method popup and reports the cursor rectangle relative to it |
+| Password fields | Secure text field role | `IsPassword` property | Content purpose `password` or `pin` |
+| Keys | `CGEventTap`. The callback must return fast, or macOS disables the tap | Low-level keyboard hook (`WH_KEYBOARD_LL`) | Input-method keyboard grab; unconsumed keys forwarded through a virtual keyboard |
+| Display | Non-activating, click-through `NSPanel` (Tauri window via [tauri-nspanel](https://github.com/ahkohd/tauri-nspanel)) | Topmost layered window that never activates and ignores the mouse, drawn by `crates/render` | Input-method popup surface at the cursor, drawn by `crates/render` |
+| Insert | Unicode keyboard events, or paste with clipboard restore | `SendInput` Unicode, or paste with clipboard restore | `delete_surrounding_text` and `commit_string` |
+| Conversation | Accessibility tree of the window; Vision OCR fallback with Screen Recording permission | UI Automation tree; `Windows.Media.Ocr` fallback | AT-SPI over D-Bus; screenshot portal plus OCR fallback |
+| Secure input / blocked | `IsSecureEventInputEnabled` | Elevated windows are unreachable (UIPI) | Password purpose |
 
 On Wayland the input-method route is the only one that works: ordinary windows cannot learn the cursor's position or place themselves next to it, and there is no global keyboard capture. `zwp_input_method_v2` is offered by niri, sway, Hyprland, river, labwc and other wlroots- and Smithay-based compositors. Only one input method can be bound at a time, so Ghostcaret cannot run alongside fcitx5 or IBus. KDE Plasma (which offers `zwp_input_method_v1`), GNOME (which uses IBus over D-Bus) and X11 sessions need their own adapters; see the open decisions.
 
@@ -142,7 +131,7 @@ When the cursor is in the middle of a word, the local model uses token healing: 
 
 ### Local inference
 
-Ghostcaret runs [llama.cpp](https://github.com/ggml-org/llama.cpp) through Rust bindings, with the GPU backend each platform supports: Metal on macOS, Vulkan or CUDA on Windows and Linux, and CPU or Vulkan on Android. The CPU code path is chosen at run time for the processor's instruction set, so one build runs at full speed on every machine.
+Ghostcaret runs [llama.cpp](https://github.com/ggml-org/llama.cpp) through Rust bindings, with the GPU backend each platform supports: Metal on macOS, and Vulkan or CUDA on Windows and Linux. The CPU code path is chosen at run time for the processor's instruction set, so one build runs at full speed on every machine.
 
 These are used from the start:
 
@@ -235,8 +224,6 @@ It also respects clipboard markers that password managers set: `org.nspasteboard
 | Linux | deb, rpm, AUR | Distribution package manager |
 | macOS | Signed and notarized DMG | Tauri updater, signed |
 | Windows | Signed MSI or NSIS installer | Tauri updater, signed |
-| Android | APK, F-Droid; Google Play later | Store or F-Droid |
-| iOS | TestFlight, then the App Store | App Store |
 
 Flatpak is not planned for the first Linux release, because the input method needs the host's Wayland input-method protocol and AT-SPI access.
 
@@ -246,13 +233,13 @@ The targets in [quality.md](quality.md) shape the design in these ways.
 
 The keystroke path stays minimal. The key gate reads a small state (is a suggestion showing, which keys are bound) from atomics, decides, and returns. It never allocates, locks, logs, or waits on the engine. Everything else happens on other threads after the key has been passed on or consumed.
 
-Integration with the OS is driven by events. Focus, value and selection changes arrive as OS notifications; nothing polls on a timer. Element handles are cached per focused field. Text is re-read only when a notification or a keystroke says it changed, and the edit is applied to the cached copy where the platform reports ranges. Offsets are converted between the platform's units (UTF-16 on macOS, Windows, Android and iOS) and UTF-8 once, at the boundary.
+Integration with the OS is driven by events. Focus, value and selection changes arrive as OS notifications; nothing polls on a timer. Element handles are cached per focused field. Text is re-read only when a notification or a keystroke says it changed, and the edit is applied to the cached copy where the platform reports ranges. Offsets are converted between the platform's units (UTF-16 on macOS and Windows) and UTF-8 once, at the boundary.
 
 Rendering does as little as possible. The suggestion window is created once and reused. An update changes only its text and position, and lands within one frame. There is no animation by default, which also respects reduced-motion settings.
 
 Work runs only while the user types. Prediction starts after a keystroke and stops at the boundary or at the next keystroke. When the user is not typing, Ghostcaret has no running timers, and its process sleeps until the OS wakes it.
 
-Memory follows the OS. The model unloads on memory-pressure signals (macOS memory pressure, Android `onTrimMemory`, Windows low-memory notifications) and when idle. Settings and setup windows release their web views when closed.
+Memory follows the OS. The model unloads on memory-pressure signals (macOS memory pressure, Windows low-memory notifications) and when idle. Settings and setup windows release their web views when closed.
 
 On battery, an optional low-power mode switches to the small model and a longer pause before predicting.
 
@@ -287,26 +274,26 @@ Each spike ends in a written result.
 ## Build order
 
 1. The engine and the benchmark come first, because every platform depends on them.
-2. Platforms: Linux first, with Windows and Android built alongside it; macOS and iOS follow once there is hardware to test on.
+2. Platforms: Linux first, with Windows built alongside it; macOS follows once there is hardware to test on.
 3. Each platform release includes autocomplete and Reply & rewrite.
 
 ## Decisions
 
 | Date | Decision | Reason |
 | --- | --- | --- |
-| 2026-10-29 | MPL-2.0 license | Changes to our own files stay open; the code can be combined with Apache and MIT dependencies; compatible with App Store distribution |
+| 2026-10-29 | MPL-2.0 license | Changes to our own files stay open; the code can be combined with Apache and MIT dependencies |
 | 2026-10-29 | Engine in Rust | One codebase for all targets, with direct use of llama.cpp's C API |
-| 2026-10-30 | One Tauri 2 app with native Rust platform modules | One application on every platform, instead of a separate app per OS. Tauri provides windows, tray, updater and mobile targets |
-| 2026-10-30 | Build order: Linux first, Windows and Android alongside, macOS and iOS later | Linux is the maintainer's daily platform and has no comparable product; Windows and Android have test machines now, macOS and iOS do not |
+| 2026-10-30 | One Tauri 2 app with native Rust platform modules | One application on every platform, instead of a separate app per OS. Tauri provides windows, tray and updater |
+| 2026-10-30 | Build order: Linux first, Windows alongside, macOS later | Linux is the maintainer's daily platform and has no comparable product; Windows has a test machine now, macOS does not |
+| 2026-10-30 | Android and iOS dropped | Gboard and the built-in mobile keyboards already cover phones well; the gap is on the desktop |
 | 2026-10-29 | First release on each platform includes autocomplete and Reply & rewrite | Both features from the start |
 | 2026-10-30 | Defaults: Auto length; Tab, backtick, Alt+→; setup asks local or key; 16 GB local-model floor | See product.md |
 | 2026-10-29 | Linux through the input method | Wayland reveals the cursor and keys only to input methods |
 | 2026-10-30 | On Wayland, the app is the input method itself (`zwp_input_method_v2`), with no fcitx5 or IBus plugin | All Rust, no socket or second process, nothing to install system-wide; niri and other wlroots- and Smithay-based compositors support it |
 | 2026-10-30 | Engine split into `engine` (logic and contracts), `local`, `cloud`; overlay drawn by `crates/render` on Linux and Windows | The engine stays free of model and OS code; one renderer serves both overlays |
-| 2026-10-30 | Android ships its own keyboard inside the APK | Keyboards are the only Android component that can insert text everywhere without the accessibility API |
 | 2026-10-29 | Clean-room development | Avoids importing closed-source code or terms |
 | 2026-10-30 | Measured release gates in quality.md: latency, resource use, suggestion quality, parity floor | Best in class is a measured claim; nothing ships below the bar |
-| 2026-10-30 | One runtime crate for the desktop app and the Android keyboard, behind a small host interface | Timers, workers, model management, the daily cap and the local fallback behave the same on every platform and are tested once with fakes |
+| 2026-10-30 | One runtime crate for the desktop app, behind a small host interface | Timers, workers, model management, the daily cap and the local fallback behave the same on every platform and are tested once with fakes |
 
 ## Open technical decisions
 

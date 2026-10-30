@@ -1,13 +1,10 @@
 //! Ghostcaret: the Tauri app that hosts the engine.
 //!
-//! On desktop it lives in the tray, runs the OS backend and the engine's
-//! runtime ([`oft_runtime`], with this app as its [`host`]), and opens the
-//! settings window on demand; the window and its web view are destroyed when
-//! closed. On mobile the keyboard hosts the engine, and this app is the
-//! settings and setup UI.
+//! It lives in the tray, runs the OS backend and the engine's runtime
+//! ([`oft_runtime`], with this app as its [`host`]), and opens the settings
+//! window on demand; the window and its web view are destroyed when closed.
 
 mod commands;
-#[cfg(desktop)]
 mod host;
 mod keychain;
 mod keys;
@@ -15,7 +12,6 @@ mod memory;
 mod paths;
 mod settings_store;
 mod setup;
-#[cfg(desktop)]
 mod tray;
 
 use std::sync::{Arc, Mutex};
@@ -40,7 +36,6 @@ pub struct AppState {
     stats: Option<Stats>,
     style: Option<StyleMemory>,
     sent_log: SentLog,
-    #[cfg(desktop)]
     runtime: oft_runtime::Runtime,
     #[cfg(feature = "local")]
     models: oft_local::store::ModelStore,
@@ -93,9 +88,7 @@ pub fn open_main(app: &AppHandle) {
         let _ = w.set_focus();
         return;
     }
-    let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()));
-    #[cfg(desktop)]
-    let builder = builder
+    let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
         .title("Ghostcaret")
         .inner_size(920.0, 680.0)
         .min_inner_size(600.0, 460.0);
@@ -105,7 +98,6 @@ pub fn open_main(app: &AppHandle) {
 }
 
 /// Redraws the tray from the current status and settings error.
-#[cfg(desktop)]
 fn refresh_tray(app: &AppHandle, state: &AppState) {
     let status = state.runtime.status();
     let error = state.settings_error();
@@ -113,15 +105,8 @@ fn refresh_tray(app: &AppHandle, state: &AppState) {
     let _ = app.run_on_main_thread(move || tray::update(&handle, &status, error.as_deref()));
 }
 
-#[cfg(mobile)]
-fn refresh_tray(_app: &AppHandle, _state: &AppState) {}
-
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    #[cfg(mobile)]
-    let dirs = Some((app.path().app_config_dir()?, app.path().app_data_dir()?));
-    #[cfg(desktop)]
-    let dirs = None;
-    if !paths::init(dirs) {
+    if !paths::init() {
         return Err("the OS reports no home directory".into());
     }
     let store = SettingsStore::new(paths::config_dir());
@@ -140,7 +125,6 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let step = setup.load();
     let settings = Arc::new(Mutex::new(loaded.settings));
 
-    #[cfg(desktop)]
     let runtime = {
         let host = Arc::new(host::DesktopHost::new(
             app.handle().clone(),
@@ -174,7 +158,6 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         stats,
         style,
         sent_log,
-        #[cfg(desktop)]
         runtime,
         #[cfg(feature = "local")]
         models: oft_local::store::ModelStore::new(paths::models_dir()),
@@ -183,27 +166,19 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     });
     app.manage(state.clone());
 
-    #[cfg(desktop)]
-    {
-        let status = state.runtime.status();
-        tray::create(app.handle(), &status, state.settings_error().as_deref())?;
-        if step != Step::Done || state.settings_error().is_some() {
-            open_main(app.handle());
-        }
+    let status = state.runtime.status();
+    tray::create(app.handle(), &status, state.settings_error().as_deref())?;
+    if step != Step::Done || state.settings_error().is_some() {
+        open_main(app.handle());
     }
-    #[cfg(mobile)]
-    open_main(app.handle());
     Ok(())
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default();
-    #[cfg(desktop)]
-    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-        open_main(app)
-    }));
-    let app = builder
+    let app = tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            open_main(app)
+        }))
         .setup(setup)
         .invoke_handler(tauri::generate_handler![
             commands::overview,

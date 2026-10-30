@@ -58,18 +58,6 @@ windows = { version = "0.62", features = [
 # The COM `implement` macro expands to paths in windows-core.
 windows-core = "0.62"
 
-# Android: the engine runtime inside the keyboard service with local
-# inference, JNI glue, and the stores it shares with the app.
-[target.'cfg(target_os = "android")'.dependencies]
-oft-runtime = { workspace = true, features = ["local"] }
-# The phone's load options.
-oft-local.workspace = true
-# The "What was sent" log the runtime fills.
-oft-cloud.workspace = true
-oft-store.workspace = true
-jni = "0.22"
-android_logger = { version = "0.15", default-features = false }
-
 [dev-dependencies]
 proptest = "1"
 unicode-segmentation = "1"

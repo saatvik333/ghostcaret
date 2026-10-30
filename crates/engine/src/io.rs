@@ -8,8 +8,8 @@
 //! afterwards through events.
 //!
 //! All text offsets in this module are UTF-8 byte offsets on `char` boundaries.
-//! Backends convert from their platform's units (UTF-16 on Windows, macOS,
-//! Android, iOS) once, at the boundary.
+//! Backends convert from their platform's units (UTF-16 on Windows and
+//! macOS) once, at the boundary.
 
 use serde::{Deserialize, Serialize};
 
@@ -28,8 +28,8 @@ pub struct FieldId(pub u64);
 /// The application that owns the focused field.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AppInfo {
-    /// Stable key for per-app rules: the Wayland app_id, the lower-case Windows
-    /// executable name (`slack.exe`), or the Android package name.
+    /// Stable key for per-app rules: the Wayland app_id or the lower-case
+    /// Windows executable name (`slack.exe`).
     pub id: String,
     /// Human-readable name for the settings list.
     pub name: String,

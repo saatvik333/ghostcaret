@@ -198,7 +198,7 @@
   />
   <button type="submit">Turn off</button>
 </form>
-<p class="hint" id="new-app-h">The Wayland app id, the Windows program name (slack.exe) or the Android package name.</p>
+<p class="hint" id="new-app-h">The Wayland app id or the Windows program name (slack.exe).</p>
 {#if newIdError}<p class="error" id="new-app-e">{newIdError}</p>{/if}
 
 <ConfirmDialog
