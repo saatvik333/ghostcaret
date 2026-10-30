@@ -1,0 +1,37 @@
+[package]
+name = "oft-local"
+description = "Local inference through llama.cpp, and the local model store"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[features]
+# GPU backends and build options of llama.cpp. The default build is CPU only.
+cuda = ["llama-cpp-sys-2/cuda"]
+vulkan = ["llama-cpp-sys-2/vulkan"]
+metal = ["llama-cpp-sys-2/metal"]
+openmp = ["llama-cpp-sys-2/openmp"]
+# Backends as loadable modules, with every CPU variant built and the best one
+# picked at run time for the processor.
+dynamic-backends = ["llama-cpp-sys-2/dynamic-backends"]
+
+[dependencies]
+oft-engine.workspace = true
+thiserror.workspace = true
+log.workspace = true
+llama-cpp-sys-2 = { version = "=0.1.160", default-features = false }
+directories = "6"
+sha2 = "0.11"
+ureq = { version = "3.5", default-features = false, features = ["rustls"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+# One self-contained JNI library: link the C++ runtime statically.
+llama-cpp-sys-2 = { version = "=0.1.160", default-features = false, features = ["static-stdcxx"] }
+
+[dev-dependencies]
+proptest = "1"
+
+[lints]
+workspace = true
