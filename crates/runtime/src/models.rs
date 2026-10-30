@@ -60,14 +60,22 @@ impl LocalModel for oft_local::LocalModel {
 /// Builds and finds models: [`Models`] in the product, fakes in tests.
 pub(crate) trait Loader: Send + Sync + 'static {
     /// Called on a helper thread with the key the host returned.
-    fn provider(&self, config: &ProviderConfig, key: Option<String>) -> Result<Arc<dyn CloudModel>, String>;
+    fn provider(
+        &self,
+        config: &ProviderConfig,
+        key: Option<String>,
+    ) -> Result<Arc<dyn CloudModel>, String>;
     /// The file for a local model setting, or why there is none.
     fn resolve(&self, model: &str) -> Result<PathBuf, String>;
     /// An installed model autocomplete can move to when the cloud fails.
     fn fallback(&self) -> Option<PathBuf>;
     /// Loads a local model, reporting progress from 0 to 1. Called on the
     /// local-model thread.
-    fn load(&self, path: &Path, progress: &mut dyn FnMut(f32)) -> Result<Arc<dyn LocalModel>, String>;
+    fn load(
+        &self,
+        path: &Path,
+        progress: &mut dyn FnMut(f32),
+    ) -> Result<Arc<dyn LocalModel>, String>;
 }
 
 /// The product's models: `oft-cloud` providers, and `oft-local` models from
@@ -93,13 +101,21 @@ impl Models {
 }
 
 impl Loader for Models {
-    fn provider(&self, config: &ProviderConfig, key: Option<String>) -> Result<Arc<dyn CloudModel>, String> {
-        oft_cloud::provider(config, key, self.sent_log.clone()).map(|p| p as Arc<dyn CloudModel>).map_err(|e| e.to_string())
+    fn provider(
+        &self,
+        config: &ProviderConfig,
+        key: Option<String>,
+    ) -> Result<Arc<dyn CloudModel>, String> {
+        oft_cloud::provider(config, key, self.sent_log.clone())
+            .map(|p| p as Arc<dyn CloudModel>)
+            .map_err(|e| e.to_string())
     }
 
     #[cfg(feature = "local")]
     fn resolve(&self, model: &str) -> Result<PathBuf, String> {
-        self.store.resolve(model).ok_or_else(|| "the local model is not downloaded yet".into())
+        self.store
+            .resolve(model)
+            .ok_or_else(|| "the local model is not downloaded yet".into())
     }
 
     #[cfg(not(feature = "local"))]
@@ -111,7 +127,10 @@ impl Loader for Models {
     #[cfg(feature = "local")]
     fn fallback(&self) -> Option<PathBuf> {
         let installed = self.store.installed().ok()?;
-        installed.into_iter().find(|i| i.entry.is_some()).map(|i| i.path)
+        installed
+            .into_iter()
+            .find(|i| i.entry.is_some())
+            .map(|i| i.path)
     }
 
     #[cfg(not(feature = "local"))]
@@ -120,7 +139,11 @@ impl Loader for Models {
     }
 
     #[cfg(feature = "local")]
-    fn load(&self, path: &Path, progress: &mut dyn FnMut(f32)) -> Result<Arc<dyn LocalModel>, String> {
+    fn load(
+        &self,
+        path: &Path,
+        progress: &mut dyn FnMut(f32),
+    ) -> Result<Arc<dyn LocalModel>, String> {
         oft_local::LocalModel::load_with_progress(path, self.options.clone(), progress)
             .map(|m| Arc::new(m) as Arc<dyn LocalModel>)
             .map_err(|e| e.to_string())
@@ -128,16 +151,30 @@ impl Loader for Models {
 
     /// Unreachable: no setting resolves to a file without local inference.
     #[cfg(not(feature = "local"))]
-    fn load(&self, _path: &Path, _progress: &mut dyn FnMut(f32)) -> Result<Arc<dyn LocalModel>, String> {
+    fn load(
+        &self,
+        _path: &Path,
+        _progress: &mut dyn FnMut(f32),
+    ) -> Result<Arc<dyn LocalModel>, String> {
         Err("this build has no local inference".into())
     }
 }
 
 /// Results the helper threads send back to the runtime thread.
 pub(crate) enum HubEvent {
-    Built { generation: u64, provider: String, result: Result<Arc<dyn CloudModel>, String> },
-    Progress { load: u64, fraction: f32 },
-    Loaded { load: u64, result: Result<Arc<dyn LocalModel>, String> },
+    Built {
+        generation: u64,
+        provider: String,
+        result: Result<Arc<dyn CloudModel>, String>,
+    },
+    Progress {
+        load: u64,
+        fraction: f32,
+    },
+    Loaded {
+        load: u64,
+        result: Result<Arc<dyn LocalModel>, String>,
+    },
 }
 
 enum LocalJob {
@@ -182,7 +219,12 @@ struct Resident {
 /// Capabilities the local model reports, used before it is first loaded so
 /// the controller knows a model is configured. Replaced by the loaded model's
 /// own `caps()` once it is in memory.
-const LOCAL_CAPS: Caps = Caps { token_probs: true, cheap_alternatives: true, prefill: true, local: true };
+const LOCAL_CAPS: Caps = Caps {
+    token_probs: true,
+    cheap_alternatives: true,
+    prefill: true,
+    local: true,
+};
 
 pub(crate) struct Hub {
     tx: Sender<HubEvent>,
@@ -203,22 +245,29 @@ pub(crate) struct Hub {
 }
 
 impl Hub {
-    pub(crate) fn new(host: Arc<dyn Host>, loader: Arc<dyn Loader>) -> io::Result<(Hub, Receiver<HubEvent>)> {
+    pub(crate) fn new(
+        host: Arc<dyn Host>,
+        loader: Arc<dyn Loader>,
+    ) -> io::Result<(Hub, Receiver<HubEvent>)> {
         let (tx, rx) = unbounded();
         let (warm, warm_rx) = unbounded::<Arc<dyn CloudModel>>();
-        thread::Builder::new().name("oft-warm".into()).spawn(move || {
-            while let Ok(mut provider) = warm_rx.recv() {
-                // Only the latest focus matters.
-                while let Ok(newer) = warm_rx.try_recv() {
-                    provider = newer;
+        thread::Builder::new()
+            .name("oft-warm".into())
+            .spawn(move || {
+                while let Ok(mut provider) = warm_rx.recv() {
+                    // Only the latest focus matters.
+                    while let Ok(newer) = warm_rx.try_recv() {
+                        provider = newer;
+                    }
+                    provider.warm();
                 }
-                provider.warm();
-            }
-        })?;
+            })?;
         let (local, jobs) = unbounded();
         {
             let (loader, out) = (loader.clone(), tx.clone());
-            thread::Builder::new().name("oft-local".into()).spawn(move || local_thread(&*loader, &jobs, &out))?;
+            thread::Builder::new()
+                .name("oft-local".into())
+                .spawn(move || local_thread(&*loader, &jobs, &out))?;
         }
         let hub = Hub {
             tx,
@@ -245,37 +294,72 @@ impl Hub {
         let mut building = Vec::new();
         self.autocomplete = self.slot_for(settings, &settings.autocomplete_model, &mut building);
         self.draft = self.slot_for(settings, &settings.draft_model, &mut building);
-        if self.resident.loaded.as_ref().is_some_and(|(p, _)| !self.uses(p)) {
+        if self
+            .resident
+            .loaded
+            .as_ref()
+            .is_some_and(|(p, _)| !self.uses(p))
+        {
             self.unload();
         }
         // Its result is unloaded when it arrives.
-        if self.resident.loading.as_ref().is_some_and(|(_, p, _)| !self.uses(p)) {
+        if self
+            .resident
+            .loading
+            .as_ref()
+            .is_some_and(|(_, p, _)| !self.uses(p))
+        {
             self.resident.loading = None;
         }
         self.resident.failed = None;
     }
 
     fn uses(&self, path: &Path) -> bool {
-        [&self.autocomplete, &self.draft].into_iter().any(|s| matches!(s, Slot::Local(p) if p == path))
+        [&self.autocomplete, &self.draft]
+            .into_iter()
+            .any(|s| matches!(s, Slot::Local(p) if p == path))
     }
 
     /// The slot for `choice`. Starts building a provider unless `building`
     /// already names it.
-    fn slot_for(&self, settings: &Settings, choice: &ModelChoice, building: &mut Vec<String>) -> Slot {
+    fn slot_for(
+        &self,
+        settings: &Settings,
+        choice: &ModelChoice,
+        building: &mut Vec<String>,
+    ) -> Slot {
         match choice {
             ModelChoice::None => Slot::None,
             ModelChoice::Provider { provider } => {
                 if building.contains(provider) {
                     return Slot::Building(provider.clone());
                 }
-                let Some(config) = settings.providers.iter().find(|p| &p.id == provider).cloned() else {
+                let Some(config) = settings
+                    .providers
+                    .iter()
+                    .find(|p| &p.id == provider)
+                    .cloned()
+                else {
                     return Slot::Failed("the chosen provider is not configured".into());
                 };
-                let (tx, host, loader, generation) = (self.tx.clone(), self.host.clone(), self.loader.clone(), self.generation);
-                let spawned = thread::Builder::new().name("oft-provider".into()).spawn(move || {
-                    let result = host.api_key(&config.id).and_then(|key| loader.provider(&config, key));
-                    let _ = tx.send(HubEvent::Built { generation, provider: config.id, result });
-                });
+                let (tx, host, loader, generation) = (
+                    self.tx.clone(),
+                    self.host.clone(),
+                    self.loader.clone(),
+                    self.generation,
+                );
+                let spawned = thread::Builder::new()
+                    .name("oft-provider".into())
+                    .spawn(move || {
+                        let result = host
+                            .api_key(&config.id)
+                            .and_then(|key| loader.provider(&config, key));
+                        let _ = tx.send(HubEvent::Built {
+                            generation,
+                            provider: config.id,
+                            result,
+                        });
+                    });
                 match spawned {
                     Ok(_) => {
                         building.push(provider.clone());
@@ -302,7 +386,11 @@ impl Hub {
     /// model state may have changed.
     pub(crate) fn on_event(&mut self, event: HubEvent) -> bool {
         match event {
-            HubEvent::Built { generation, provider, result } => {
+            HubEvent::Built {
+                generation,
+                provider,
+                result,
+            } => {
                 if generation != self.generation {
                     return false;
                 }
@@ -326,7 +414,8 @@ impl Hub {
                 _ => false,
             },
             HubEvent::Loaded { load, result } => {
-                let Some((_, path, _)) = self.resident.loading.take_if(|(l, _, _)| *l == load) else {
+                let Some((_, path, _)) = self.resident.loading.take_if(|(l, _, _)| *l == load)
+                else {
                     if let Ok(model) = result {
                         let _ = self.local.send(LocalJob::Unload(model));
                     }
@@ -348,10 +437,12 @@ impl Hub {
         if let Slot::Cloud(p) = &self.autocomplete {
             let _ = self.warm.send(p.clone());
         }
-        let local = [&self.autocomplete, &self.draft].into_iter().find_map(|s| match s {
-            Slot::Local(path) => Some(path.clone()),
-            _ => None,
-        });
+        let local = [&self.autocomplete, &self.draft]
+            .into_iter()
+            .find_map(|s| match s {
+                Slot::Local(path) => Some(path.clone()),
+                _ => None,
+            });
         if let Some(path) = local {
             self.ensure_loaded(&path);
         }
@@ -363,16 +454,31 @@ impl Hub {
     }
 
     fn ensure_loaded(&mut self, path: &Path) {
-        let loaded = self.resident.loaded.as_ref().is_some_and(|(p, _)| p == path);
-        let loading = self.resident.loading.as_ref().is_some_and(|(_, p, _)| p == path);
-        let failed = self.resident.failed.as_ref().is_some_and(|(p, _)| p == path);
+        let loaded = self
+            .resident
+            .loaded
+            .as_ref()
+            .is_some_and(|(p, _)| p == path);
+        let loading = self
+            .resident
+            .loading
+            .as_ref()
+            .is_some_and(|(_, p, _)| p == path);
+        let failed = self
+            .resident
+            .failed
+            .as_ref()
+            .is_some_and(|(p, _)| p == path);
         if loaded || loading || failed {
             return;
         }
         // One local model at a time.
         self.unload();
         self.loads += 1;
-        let job = LocalJob::Load { load: self.loads, path: path.to_owned() };
+        let job = LocalJob::Load {
+            load: self.loads,
+            path: path.to_owned(),
+        };
         if self.local.send(job).is_ok() {
             self.resident.loading = Some((self.loads, path.to_owned(), 0.0));
         } else {
@@ -412,7 +518,10 @@ impl Hub {
         }
     }
 
-    pub(crate) fn completer(&mut self, feature: Feature) -> Result<Arc<dyn Completer>, CompleteError> {
+    pub(crate) fn completer(
+        &mut self,
+        feature: Feature,
+    ) -> Result<Arc<dyn Completer>, CompleteError> {
         match self.slot(feature).clone() {
             Slot::Cloud(p) => Ok(p),
             Slot::Local(path) => self.local_model(&path).map(|m| m as Arc<dyn Completer>),
@@ -420,7 +529,10 @@ impl Hub {
         }
     }
 
-    pub(crate) fn generator(&mut self, feature: Feature) -> Result<Arc<dyn Generator>, CompleteError> {
+    pub(crate) fn generator(
+        &mut self,
+        feature: Feature,
+    ) -> Result<Arc<dyn Generator>, CompleteError> {
         match self.slot(feature).clone() {
             Slot::Cloud(p) => Ok(p),
             Slot::Local(path) => self.local_model(&path).map(|m| m as Arc<dyn Generator>),
@@ -440,7 +552,9 @@ impl Hub {
             return Err(CompleteError::Unavailable(e.clone()));
         }
         self.ensure_loaded(path);
-        Err(CompleteError::Unavailable("the local model is loading".into()))
+        Err(CompleteError::Unavailable(
+            "the local model is loading".into(),
+        ))
     }
 
     /// The cloud provider for autocomplete failed: switch autocomplete to an
@@ -449,7 +563,9 @@ impl Hub {
         if !matches!(self.autocomplete, Slot::Cloud(_)) {
             return false;
         }
-        let Some(path) = self.fallback_local() else { return false };
+        let Some(path) = self.fallback_local() else {
+            return false;
+        };
         self.displaced = Some(std::mem::replace(&mut self.autocomplete, Slot::Local(path)));
         true
     }
@@ -484,7 +600,9 @@ impl Hub {
         if let Some((_, e)) = &self.resident.failed {
             return LocalState::Failed(e.clone());
         }
-        if self.resident.loaded.is_some() && (self.is_local(Feature::Autocomplete) || self.is_local(Feature::FlowDraft)) {
+        if self.resident.loaded.is_some()
+            && (self.is_local(Feature::Autocomplete) || self.is_local(Feature::FlowDraft))
+        {
             return LocalState::Ready;
         }
         LocalState::Idle

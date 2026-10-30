@@ -46,7 +46,9 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         assert_eq!(load(&dir), Ok(Settings::default()));
         let settings = Settings {
-            autocomplete_model: ModelChoice::Local { model: "/models/a.gguf".into() },
+            autocomplete_model: ModelChoice::Local {
+                model: "/models/a.gguf".into(),
+            },
             ..Settings::default()
         };
         save(&dir, &settings).unwrap();

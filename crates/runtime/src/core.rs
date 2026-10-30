@@ -43,7 +43,11 @@ const DAILY_CAP: &str = "daily request cap reached";
 
 /// What `Settings::unload_after_minutes` counts; milliseconds in tests, so
 /// they can watch an idle unload happen.
-const UNLOAD_UNIT: Duration = if cfg!(test) { Duration::from_millis(20) } else { Duration::from_secs(60) };
+const UNLOAD_UNIT: Duration = if cfg!(test) {
+    Duration::from_millis(20)
+} else {
+    Duration::from_secs(60)
+};
 
 /// A request a worker holds.
 struct Running {
@@ -139,7 +143,13 @@ impl Core {
                 0
             })
         });
-        let Workers { jobs, gens, threads, tx: worker_tx, rx: worker_rx } = workers;
+        let Workers {
+            jobs,
+            gens,
+            threads,
+            tx: worker_tx,
+            rx: worker_rx,
+        } = workers;
         let mut core = Core {
             controller: Controller::new(settings.clone()),
             host,
@@ -172,7 +182,10 @@ impl Core {
             focused: None,
             controller_status: Status::Active,
             download: None,
-            cloud: CloudCount { day: local_day(now_ms()), count: today },
+            cloud: CloudCount {
+                day: local_day(now_ms()),
+                count: today,
+            },
             shared,
         };
         // The first Settings input makes the controller send bindings, the
@@ -184,7 +197,12 @@ impl Core {
     }
 
     /// Runs until [`Command::Quit`], then stops the workers.
-    pub(crate) fn run(mut self, events: &Receiver<Event>, commands: &Receiver<Command>, hub_rx: &Receiver<HubEvent>) {
+    pub(crate) fn run(
+        mut self,
+        events: &Receiver<Event>,
+        commands: &Receiver<Command>,
+        hub_rx: &Receiver<HubEvent>,
+    ) {
         let worker_rx = self.worker_rx.clone();
         let mut select = Select::new();
         let i_events = select.recv(events);
@@ -222,7 +240,9 @@ impl Core {
                         && self.hub.on_event(event)
                     {
                         // A model loaded for a focus but never used still unloads.
-                        if self.hub.has_local_loaded() && !self.timers.iter().any(|(t, _)| *t == Timer::Unload) {
+                        if self.hub.has_local_loaded()
+                            && !self.timers.iter().any(|(t, _)| *t == Timer::Unload)
+                        {
                             self.arm_unload();
                         }
                         self.send_caps();
@@ -247,14 +267,25 @@ impl Core {
     /// local model and waits for the workers. A model load in progress
     /// cannot be interrupted; its thread exits when it finishes.
     fn shutdown(self) {
-        let running = self.completions.values().chain(self.generations.values()).chain(self.prefill.as_ref().map(|(_, r)| r));
+        let running = self
+            .completions
+            .values()
+            .chain(self.generations.values())
+            .chain(self.prefill.as_ref().map(|(_, r)| r));
         for r in running {
             r.cancel.cancel();
         }
         if let Some(b) = &self.backend {
             b.set_active(false);
         }
-        let Core { mut hub, jobs, gens, workers, conversations, .. } = self;
+        let Core {
+            mut hub,
+            jobs,
+            gens,
+            workers,
+            conversations,
+            ..
+        } = self;
         hub.unload();
         drop((jobs, gens, conversations));
         for worker in workers {
@@ -266,7 +297,11 @@ impl Core {
         match &event {
             Event::Focus(snapshot) => {
                 self.last_key = Instant::now();
-                if self.app.as_ref().is_none_or(|a| a.id != snapshot.app.id || a.name != snapshot.app.name) {
+                if self
+                    .app
+                    .as_ref()
+                    .is_none_or(|a| a.id != snapshot.app.id || a.name != snapshot.app.name)
+                {
                     if let Some(stats) = &self.stats {
                         stats.seen(snapshot.app.clone());
                     }
@@ -299,7 +334,8 @@ impl Core {
             Command::SettingsChanged => {
                 let (settings, error) = read_settings(&*self.host);
                 self.settings_error = error;
-                let models_changed = settings.autocomplete_model != self.settings.autocomplete_model
+                let models_changed = settings.autocomplete_model
+                    != self.settings.autocomplete_model
                     || settings.draft_model != self.settings.draft_model
                     || settings.providers != self.settings.providers;
                 self.settings = settings;
@@ -328,8 +364,11 @@ impl Core {
                 if self.hub.has_local_loaded() {
                     log::info!("memory pressure: unloading the local model");
                     // Its lock frees once the requests on it see the cancel.
-                    let running =
-                        self.completions.values().chain(self.generations.values()).chain(self.prefill.as_ref().map(|(_, r)| r));
+                    let running = self
+                        .completions
+                        .values()
+                        .chain(self.generations.values())
+                        .chain(self.prefill.as_ref().map(|(_, r)| r));
                     for r in running.filter(|r| r.local) {
                         r.cancel.cancel();
                     }
@@ -345,7 +384,10 @@ impl Core {
     fn rebuild_models(&mut self) {
         self.stop_timer(Timer::CloudRetry);
         self.hub.apply(&self.settings);
-        if self.focused.is_some_and(|kind| !kind.is_secure_or_structured()) {
+        if self
+            .focused
+            .is_some_and(|kind| !kind.is_secure_or_structured())
+        {
             self.hub.focus();
         }
         self.send_caps();
@@ -366,9 +408,16 @@ impl Core {
     fn cloud_allowed(&mut self) -> bool {
         let today = local_day(now_ms());
         if self.cloud.day != today {
-            self.cloud = CloudCount { day: today, count: 0 };
+            self.cloud = CloudCount {
+                day: today,
+                count: 0,
+            };
         }
-        if self.settings.daily_request_cap.is_some_and(|cap| self.cloud.count >= cap) {
+        if self
+            .settings
+            .daily_request_cap
+            .is_some_and(|cap| self.cloud.count >= cap)
+        {
             return false;
         }
         self.cloud.count += 1;
@@ -379,14 +428,26 @@ impl Core {
     }
 
     fn cap_reached(&self) -> bool {
-        self.cloud.day == local_day(now_ms()) && self.settings.daily_request_cap.is_some_and(|cap| self.cloud.count >= cap)
+        self.cloud.day == local_day(now_ms())
+            && self
+                .settings
+                .daily_request_cap
+                .is_some_and(|cap| self.cloud.count >= cap)
     }
 
     fn on_worker(&mut self, msg: WorkerMsg) {
         match msg {
-            WorkerMsg::Completed { id, result, queue, decode } => {
+            WorkerMsg::Completed {
+                id,
+                result,
+                queue,
+                decode,
+            } => {
                 self.completions.remove(&id);
-                let pending = self.pending.remove(&id).map(|p| Pending { queue, decode, ..p });
+                let pending = self
+                    .pending
+                    .remove(&id)
+                    .map(|p| Pending { queue, decode, ..p });
                 let cancelled = matches!(result, Err(CompleteError::Cancelled));
                 self.finishing = pending.map(|p| (id, p));
                 self.feed(Input::Completed { id, result });
@@ -395,7 +456,11 @@ impl Core {
                 }
             }
             WorkerMsg::Input(input) => {
-                if let Input::Generated { id, update: GenerateUpdate::Done(_) } = &input {
+                if let Input::Generated {
+                    id,
+                    update: GenerateUpdate::Done(_),
+                } = &input
+                {
                     self.generations.remove(id);
                 }
                 self.feed(input);
@@ -462,33 +527,61 @@ impl Core {
                     p.cancel.cancel();
                 }
                 let id = request.id;
-                match self.cloud_gate(Feature::Autocomplete).and_then(|()| self.hub.completer(Feature::Autocomplete)) {
+                match self
+                    .cloud_gate(Feature::Autocomplete)
+                    .and_then(|()| self.hub.completer(Feature::Autocomplete))
+                {
                     Ok(model) => {
                         let cancel = CancelToken::new();
                         let issued = Instant::now();
-                        let job = Job::Complete { request, model, cancel: cancel.clone(), queued: issued };
+                        let job = Job::Complete {
+                            request,
+                            model,
+                            cancel: cancel.clone(),
+                            queued: issued,
+                        };
                         if self.jobs.send(job).is_err() {
-                            self.queued.push_back(Input::Completed { id, result: Err(stopped()) });
+                            self.queued.push_back(Input::Completed {
+                                id,
+                                result: Err(stopped()),
+                            });
                             return;
                         }
                         let local = self.hub.is_local(Feature::Autocomplete);
                         self.completions.insert(id, Running { cancel, local });
-                        let pending =
-                            Pending { key_at: self.last_key, issued, build, queue: Duration::ZERO, decode: Duration::ZERO };
+                        let pending = Pending {
+                            key_at: self.last_key,
+                            issued,
+                            build,
+                            queue: Duration::ZERO,
+                            decode: Duration::ZERO,
+                        };
                         self.pending.insert(id, pending);
                         self.touch_local(Feature::Autocomplete);
                     }
-                    Err(e) => self.queued.push_back(Input::Completed { id, result: Err(e) }),
+                    Err(e) => self
+                        .queued
+                        .push_back(Input::Completed { id, result: Err(e) }),
                 }
             }
             Output::Prefill(request) => {
                 if let Ok(model) = self.hub.completer(Feature::Autocomplete) {
                     let (id, cancel) = (request.id, CancelToken::new());
                     let local = self.hub.is_local(Feature::Autocomplete);
-                    if let Some((_, old)) = self.prefill.replace((id, Running { cancel: cancel.clone(), local })) {
+                    if let Some((_, old)) = self.prefill.replace((
+                        id,
+                        Running {
+                            cancel: cancel.clone(),
+                            local,
+                        },
+                    )) {
                         old.cancel.cancel();
                     }
-                    let _ = self.jobs.send(Job::Prefill { request, model, cancel });
+                    let _ = self.jobs.send(Job::Prefill {
+                        request,
+                        model,
+                        cancel,
+                    });
                     self.touch_local(Feature::Autocomplete);
                 }
             }
@@ -501,18 +594,35 @@ impl Core {
             }
             Output::Generate(request) => {
                 let id = request.id;
-                match self.cloud_gate(Feature::FlowDraft).and_then(|()| self.hub.generator(Feature::FlowDraft)) {
+                match self
+                    .cloud_gate(Feature::FlowDraft)
+                    .and_then(|()| self.hub.generator(Feature::FlowDraft))
+                {
                     Ok(model) => {
                         let cancel = CancelToken::new();
-                        if self.gens.send(GenJob { request, model, cancel: cancel.clone() }).is_err() {
-                            self.queued.push_back(Input::Generated { id, update: GenerateUpdate::Done(Err(stopped())) });
+                        if self
+                            .gens
+                            .send(GenJob {
+                                request,
+                                model,
+                                cancel: cancel.clone(),
+                            })
+                            .is_err()
+                        {
+                            self.queued.push_back(Input::Generated {
+                                id,
+                                update: GenerateUpdate::Done(Err(stopped())),
+                            });
                             return;
                         }
                         let local = self.hub.is_local(Feature::FlowDraft);
                         self.generations.insert(id, Running { cancel, local });
                         self.touch_local(Feature::FlowDraft);
                     }
-                    Err(e) => self.queued.push_back(Input::Generated { id, update: GenerateUpdate::Done(Err(e)) }),
+                    Err(e) => self.queued.push_back(Input::Generated {
+                        id,
+                        update: GenerateUpdate::Done(Err(e)),
+                    }),
                 }
             }
             Output::CancelGenerate(id) => {
@@ -520,12 +630,19 @@ impl Core {
                     r.cancel.cancel();
                 }
             }
-            Output::StartTimer { id, after } => self.start_timer(Timer::Controller(id), Instant::now() + after),
+            Output::StartTimer { id, after } => {
+                self.start_timer(Timer::Controller(id), Instant::now() + after)
+            }
             Output::StopTimer(id) => self.stop_timer(Timer::Controller(id)),
             Output::ReadConversation(field) => {
-                let sent = self.conversations().is_some_and(|tx| tx.send(field).is_ok());
+                let sent = self
+                    .conversations()
+                    .is_some_and(|tx| tx.send(field).is_ok());
                 if !sent {
-                    self.queued.push_back(Input::Conversation { field, conversation: None });
+                    self.queued.push_back(Input::Conversation {
+                        field,
+                        conversation: None,
+                    });
                 }
             }
             Output::Record(stat) => {
@@ -601,7 +718,10 @@ impl Core {
             return false;
         }
         self.start_timer(Timer::CloudRetry, Instant::now() + CLOUD_RETRY);
-        if self.focused.is_some_and(|kind| !kind.is_secure_or_structured()) {
+        if self
+            .focused
+            .is_some_and(|kind| !kind.is_secure_or_structured())
+        {
             self.hub.focus();
         }
         self.send_caps();
@@ -624,7 +744,10 @@ impl Core {
     }
 
     fn send_caps(&mut self) {
-        for (i, feature) in [Feature::Autocomplete, Feature::FlowDraft].into_iter().enumerate() {
+        for (i, feature) in [Feature::Autocomplete, Feature::FlowDraft]
+            .into_iter()
+            .enumerate()
+        {
             let caps = self.hub.caps(feature);
             if self.caps_sent[i] != caps {
                 self.caps_sent[i] = caps;
@@ -638,7 +761,10 @@ impl Core {
         let now = Instant::now();
         let timing = Timing {
             id,
-            at_ms: SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64,
+            at_ms: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64,
             wait_us: us(p.issued.saturating_duration_since(p.key_at)),
             build_us: us(p.build),
             queue_us: us(p.queue),
@@ -649,7 +775,11 @@ impl Core {
             cancelled,
         };
         log::debug!("completion {id}: {timing:?}");
-        let mut ring = self.shared.timings.lock().unwrap_or_else(|e| e.into_inner());
+        let mut ring = self
+            .shared
+            .timings
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         if ring.len() == TIMINGS_KEPT {
             ring.pop_front();
         }
@@ -673,14 +803,24 @@ impl Core {
 
     fn fire_timers(&mut self) {
         let now = Instant::now();
-        let due: Vec<Timer> = self.timers.iter().filter(|(_, at)| *at <= now).map(|(t, _)| *t).collect();
+        let due: Vec<Timer> = self
+            .timers
+            .iter()
+            .filter(|(_, at)| *at <= now)
+            .map(|(t, _)| *t)
+            .collect();
         self.timers.retain(|(_, at)| *at > now);
         for timer in due {
             match timer {
                 Timer::Controller(id) => self.feed(Input::Timer(id)),
                 Timer::Unload => {
                     // A long generation is not idleness.
-                    if self.completions.values().chain(self.generations.values()).any(|r| r.local) {
+                    if self
+                        .completions
+                        .values()
+                        .chain(self.generations.values())
+                        .any(|r| r.local)
+                    {
                         self.arm_unload();
                     } else {
                         self.hub.unload();
@@ -723,10 +863,14 @@ impl Core {
             text,
             detail,
             pauses,
-            app: self
-                .app
-                .as_ref()
-                .map(|a| AppRef { id: a.id.clone(), name: if a.name.is_empty() { a.id.clone() } else { a.name.clone() } }),
+            app: self.app.as_ref().map(|a| AppRef {
+                id: a.id.clone(),
+                name: if a.name.is_empty() {
+                    a.id.clone()
+                } else {
+                    a.name.clone()
+                },
+            }),
             local_model_loaded: self.hub.has_local_loaded(),
         }
     }
@@ -739,48 +883,100 @@ impl Core {
         if let Some(p) = pauses.iter().find(|p| p.app.is_none()) {
             return (StatusKind::Paused, format!("Paused{}", until(p)), None);
         }
-        if let Some(p) = pauses.iter().find(|p| p.app.as_deref() == app_id && app_id.is_some()) {
+        if let Some(p) = pauses
+            .iter()
+            .find(|p| p.app.as_deref() == app_id && app_id.is_some())
+        {
             let name = p.name.as_deref().unwrap_or_default();
-            return (StatusKind::Paused, format!("Paused in {name}{}", until(p)), None);
+            return (
+                StatusKind::Paused,
+                format!("Paused in {name}{}", until(p)),
+                None,
+            );
         }
         if let Some(line) = self.backend_status.as_ref().and_then(backend_line) {
             return line;
         }
         if let Some(why) = &self.settings_error {
-            return with_detail(StatusKind::SettingsInvalid, "Settings problem: ", why.clone());
+            return with_detail(
+                StatusKind::SettingsInvalid,
+                "Settings problem: ",
+                why.clone(),
+            );
         }
         if let Some(f) = self.download {
-            return (StatusKind::Downloading, format!("Model downloading, {:.0}%", f * 100.0), None);
+            return (
+                StatusKind::Downloading,
+                format!("Model downloading, {:.0}%", f * 100.0),
+                None,
+            );
         }
         match self.hub.local_state() {
-            LocalState::Loading(f) => return (StatusKind::Loading, format!("Loading model, {:.0}%", f * 100.0), None),
-            LocalState::Failed(e) => return with_detail(StatusKind::Error, "Local model unavailable: ", e),
+            LocalState::Loading(f) => {
+                return (
+                    StatusKind::Loading,
+                    format!("Loading model, {:.0}%", f * 100.0),
+                    None,
+                );
+            }
+            LocalState::Failed(e) => {
+                return with_detail(StatusKind::Error, "Local model unavailable: ", e);
+            }
             LocalState::Idle | LocalState::Ready => {}
         }
         if self.hub.is_building(Feature::Autocomplete) {
-            return (StatusKind::Loading, "Connecting to the provider".into(), None);
+            return (
+                StatusKind::Loading,
+                "Connecting to the provider".into(),
+                None,
+            );
         }
         if let Some(problem) = self.hub.problem(Feature::Autocomplete) {
             return with_detail(StatusKind::NoModel, "No model: ", problem);
         }
-        let fallback = if self.hub.took_over() { "; the local model took over" } else { "" };
-        let uses_cloud =
-            self.hub.took_over() || self.hub.is_cloud(Feature::Autocomplete) || self.hub.is_cloud(Feature::FlowDraft);
+        let fallback = if self.hub.took_over() {
+            "; the local model took over"
+        } else {
+            ""
+        };
+        let uses_cloud = self.hub.took_over()
+            || self.hub.is_cloud(Feature::Autocomplete)
+            || self.hub.is_cloud(Feature::FlowDraft);
         if uses_cloud && self.cap_reached() {
-            return with_detail(StatusKind::CloudUnavailable, "Cloud unavailable: ", format!("{DAILY_CAP}{fallback}"));
+            return with_detail(
+                StatusKind::CloudUnavailable,
+                "Cloud unavailable: ",
+                format!("{DAILY_CAP}{fallback}"),
+            );
         }
         match &self.controller_status {
             Status::Active => (StatusKind::Active, "Active".into(), None),
             Status::Paused => (StatusKind::Paused, "Paused".into(), None),
             Status::OffInApp(app) => {
-                let name = if app.name.is_empty() { &app.id } else { &app.name };
-                (StatusKind::OffInApp, format!("Off in {name}"), Some(name.clone()))
+                let name = if app.name.is_empty() {
+                    &app.id
+                } else {
+                    &app.name
+                };
+                (
+                    StatusKind::OffInApp,
+                    format!("Off in {name}"),
+                    Some(name.clone()),
+                )
             }
-            Status::NoModel => (StatusKind::NoModel, "No model: choose a local model or add a key".into(), None),
-            Status::CloudUnavailable(why) => {
-                with_detail(StatusKind::CloudUnavailable, "Cloud unavailable: ", format!("{why}{fallback}"))
+            Status::NoModel => (
+                StatusKind::NoModel,
+                "No model: choose a local model or add a key".into(),
+                None,
+            ),
+            Status::CloudUnavailable(why) => with_detail(
+                StatusKind::CloudUnavailable,
+                "Cloud unavailable: ",
+                format!("{why}{fallback}"),
+            ),
+            Status::Backend(status) => {
+                backend_line(status).unwrap_or_else(|| (StatusKind::Active, "Active".into(), None))
             }
-            Status::Backend(status) => backend_line(status).unwrap_or_else(|| (StatusKind::Active, "Active".into(), None)),
         }
     }
 }
@@ -799,14 +995,27 @@ fn read_settings(host: &dyn Host) -> (Settings, Option<String>) {
 fn backend_line(status: &BackendStatus) -> Option<Line> {
     match status {
         BackendStatus::Ready => None,
-        BackendStatus::PermissionMissing(what) => {
-            Some(with_detail(StatusKind::PermissionNeeded, "Permission needed: ", what.clone()))
-        }
+        BackendStatus::PermissionMissing(what) => Some(with_detail(
+            StatusKind::PermissionNeeded,
+            "Permission needed: ",
+            what.clone(),
+        )),
         BackendStatus::SecureInput { app } => {
-            let by = app.as_deref().map(|a| format!(" by {a}")).unwrap_or_default();
-            Some((StatusKind::SecureInput, format!("Blocked by secure input{by}"), app.clone()))
+            let by = app
+                .as_deref()
+                .map(|a| format!(" by {a}"))
+                .unwrap_or_default();
+            Some((
+                StatusKind::SecureInput,
+                format!("Blocked by secure input{by}"),
+                app.clone(),
+            ))
         }
-        BackendStatus::Unavailable(why) => Some(with_detail(StatusKind::Unavailable, "Unavailable: ", why.clone())),
+        BackendStatus::Unavailable(why) => Some(with_detail(
+            StatusKind::Unavailable,
+            "Unavailable: ",
+            why.clone(),
+        )),
     }
 }
 

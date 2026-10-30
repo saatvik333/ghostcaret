@@ -21,10 +21,10 @@ pub mod latency;
 pub mod linux;
 // The Windows and Android modules' pure helpers also build on other hosts
 // for their tests.
-#[cfg(any(target_os = "windows", test))]
-pub mod windows;
 #[cfg(any(target_os = "android", test))]
 pub mod android;
+#[cfg(any(target_os = "windows", test))]
+pub mod windows;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StartError {
@@ -49,6 +49,8 @@ pub fn start(events: Sender<Event>) -> Result<Arc<dyn Backend>, StartError> {
     #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     {
         let _ = events;
-        Err(StartError::Unsupported("no desktop backend for this OS yet".into()))
+        Err(StartError::Unsupported(
+            "no desktop backend for this OS yet".into(),
+        ))
     }
 }

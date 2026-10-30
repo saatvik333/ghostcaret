@@ -62,8 +62,18 @@ struct Change {
 
 impl Keyboard {
     fn focus(&self, snapshot: FieldSnapshot) {
-        let (field, app, kind, multiline) = (snapshot.field, snapshot.app.clone(), snapshot.kind, snapshot.multiline);
-        *self.focus.borrow_mut() = Some(Focused { field, app, kind, multiline });
+        let (field, app, kind, multiline) = (
+            snapshot.field,
+            snapshot.app.clone(),
+            snapshot.kind,
+            snapshot.multiline,
+        );
+        *self.focus.borrow_mut() = Some(Focused {
+            field,
+            app,
+            kind,
+            multiline,
+        });
         self.runtime.event(Event::Focus(snapshot));
     }
 
@@ -117,17 +127,27 @@ fn command(handle: jlong, command: Command) {
 }
 
 fn string(env: &Env, value: &JString) -> jni::errors::Result<String> {
-    if value.is_null() { Ok(String::new()) } else { value.try_to_string(env) }
+    if value.is_null() {
+        Ok(String::new())
+    } else {
+        value.try_to_string(env)
+    }
 }
 
 /// Context and threads for a phone: the curated small models fit 2048
 /// tokens of context, and four threads keep decoding on the big cores.
 fn load_options() -> LoadOptions {
-    LoadOptions { n_ctx: 2048, threads: 4, ..LoadOptions::default() }
+    LoadOptions {
+        n_ctx: 2048,
+        threads: 4,
+        ..LoadOptions::default()
+    }
 }
 
 fn opened<T, E: std::fmt::Display>(what: &str, result: std::result::Result<T, E>) -> Option<T> {
-    result.map_err(|e| log::error!("cannot open {what}: {e}")).ok()
+    result
+        .map_err(|e| log::error!("cannot open {what}: {e}"))
+        .ok()
 }
 
 /// Starts the engine. `trace` (Kotlin: `Log.isLoggable("oft", DEBUG)`, set
@@ -142,8 +162,16 @@ pub extern "system" fn Java_io_github_saatvik333_ghostcaret_ime_Native_start<'l>
     trace: jboolean,
 ) -> jlong {
     env.with_env(|env| -> Result<jlong> {
-        let level = if trace { log::LevelFilter::Debug } else { log::LevelFilter::Info };
-        android_logger::init_once(android_logger::Config::default().with_tag("oft").with_max_level(level));
+        let level = if trace {
+            log::LevelFilter::Debug
+        } else {
+            log::LevelFilter::Info
+        };
+        android_logger::init_once(
+            android_logger::Config::default()
+                .with_tag("oft")
+                .with_max_level(level),
+        );
         let bridge = Arc::new(Bridge::new(env, &bridge)?);
         let config_dir = PathBuf::from(string(env, &config_dir)?);
         let data_dir = PathBuf::from(string(env, &data_dir)?);
@@ -156,13 +184,20 @@ pub extern "system" fn Java_io_github_saatvik333_ghostcaret_ime_Native_start<'l>
             load_options: load_options(),
         };
         let runtime = oft_runtime::start(host, config, move |_| Ok(bridge as Arc<dyn Backend>))?;
-        Ok(Box::into_raw(Box::new(Keyboard { runtime, focus: RefCell::new(None) })) as jlong)
+        Ok(Box::into_raw(Box::new(Keyboard {
+            runtime,
+            focus: RefCell::new(None),
+        })) as jlong)
     })
     .resolve::<LogErrorAndDefault>()
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_io_github_saatvik333_ghostcaret_ime_Native_stop<'l>(_env: EnvUnowned<'l>, _class: JClass<'l>, handle: jlong) {
+pub extern "system" fn Java_io_github_saatvik333_ghostcaret_ime_Native_stop<'l>(
+    _env: EnvUnowned<'l>,
+    _class: JClass<'l>,
+    handle: jlong,
+) {
     if handle != 0 {
         // SAFETY: see `keyboard`; Kotlin passes each handle to `stop` once,
         // after zeroing its own copy, so nothing uses the box afterwards.
@@ -196,7 +231,11 @@ pub extern "system" fn Java_io_github_saatvik333_ghostcaret_ime_Native_focus<'l>
         let snapshot = FieldSnapshot {
             field: FieldId(field as u64),
             revision: 0,
-            app: AppInfo { id: string(env, &app_id)?, name: string(env, &app_name)?, title: String::new() },
+            app: AppInfo {
+                id: string(env, &app_id)?,
+                name: string(env, &app_name)?,
+                title: String::new(),
+            },
             kind: text::field_kind(kind),
             multiline,
             before,
@@ -246,7 +285,11 @@ pub extern "system" fn Java_io_github_saatvik333_ghostcaret_ime_Native_changed<'
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_io_github_saatvik333_ghostcaret_ime_Native_blur<'l>(_env: EnvUnowned<'l>, _class: JClass<'l>, handle: jlong) {
+pub extern "system" fn Java_io_github_saatvik333_ghostcaret_ime_Native_blur<'l>(
+    _env: EnvUnowned<'l>,
+    _class: JClass<'l>,
+    handle: jlong,
+) {
     if let Some(keyboard) = keyboard(handle) {
         keyboard.blur();
     }
@@ -263,7 +306,14 @@ pub extern "system" fn Java_io_github_saatvik333_ghostcaret_ime_Native_accepted<
 ) {
     env.with_env(|env| -> Result<()> {
         let text = string(env, &text)?;
-        event(handle, Event::Accepted { field: FieldId(field as u64), text, whole });
+        event(
+            handle,
+            Event::Accepted {
+                field: FieldId(field as u64),
+                text,
+                whole,
+            },
+        );
         Ok(())
     })
     .resolve::<LogErrorAndDefault>()
@@ -279,7 +329,13 @@ pub extern "system" fn Java_io_github_saatvik333_ghostcaret_ime_Native_typedThro
 ) {
     env.with_env(|env| -> Result<()> {
         let text = string(env, &text)?;
-        event(handle, Event::TypedThrough { field: FieldId(field as u64), text });
+        event(
+            handle,
+            Event::TypedThrough {
+                field: FieldId(field as u64),
+                text,
+            },
+        );
         Ok(())
     })
     .resolve::<LogErrorAndDefault>()
@@ -294,7 +350,13 @@ pub extern "system" fn Java_io_github_saatvik333_ghostcaret_ime_Native_dismissed
     reason: jint,
 ) {
     if let Some(reason) = text::dismiss_reason(reason) {
-        event(handle, Event::Dismissed { field: FieldId(field as u64), reason });
+        event(
+            handle,
+            Event::Dismissed {
+                field: FieldId(field as u64),
+                reason,
+            },
+        );
     }
 }
 
@@ -338,7 +400,13 @@ pub extern "system" fn Java_io_github_saatvik333_ghostcaret_ime_Native_insertDon
             1 => InsertOutcome::Failed(string(env, &message)?),
             _ => InsertOutcome::Unknown,
         };
-        event(handle, Event::InsertDone { id: id as u64, outcome });
+        event(
+            handle,
+            Event::InsertDone {
+                id: id as u64,
+                outcome,
+            },
+        );
         Ok(())
     })
     .resolve::<LogErrorAndDefault>()
@@ -381,7 +449,8 @@ pub extern "system" fn Java_io_github_saatvik333_ghostcaret_ime_Native_useLocalM
                 settings.draft_model = choice.clone();
             }
             settings.autocomplete_model = choice;
-            settings_file::save(&config_dir, &settings).map_err(|e| format!("cannot save settings: {e}"))
+            settings_file::save(&config_dir, &settings)
+                .map_err(|e| format!("cannot save settings: {e}"))
         });
         Ok(match saved {
             Ok(()) => JString::null(),

@@ -13,7 +13,12 @@ pub(crate) struct Color {
 
 impl Color {
     pub const fn rgb(rgb: u32) -> Color {
-        Color { r: (rgb >> 16) as u8, g: (rgb >> 8) as u8, b: rgb as u8, a: 255 }
+        Color {
+            r: (rgb >> 16) as u8,
+            g: (rgb >> 8) as u8,
+            b: rgb as u8,
+            a: 255,
+        }
     }
 
     pub const fn with_alpha(self, a: u8) -> Color {
@@ -52,7 +57,11 @@ pub(crate) fn over(dst: u32, src: u32) -> u32 {
 
 impl Image {
     pub(crate) fn new(width: u32, height: u32) -> Image {
-        Image { width, height, pixels: vec![0; width as usize * height as usize] }
+        Image {
+            width,
+            height,
+            pixels: vec![0; width as usize * height as usize],
+        }
     }
 
     /// Blends `color` scaled by `coverage / 255` over the pixel at `(x, y)`;
@@ -63,13 +72,24 @@ impl Image {
             return;
         }
         let i = y as usize * self.width as usize + x as usize;
-        let src = if coverage >= 255 { color } else { scale(color, coverage) };
+        let src = if coverage >= 255 {
+            color
+        } else {
+            scale(color, coverage)
+        };
         self.pixels[i] = over(self.pixels[i], src);
     }
 
     /// Fills a rounded rectangle with `fill` and strokes `border` pixels
     /// inside its edge with `stroke`, anti-aliased.
-    pub(crate) fn rounded_rect(&mut self, r: Rect, radius: f32, fill: Color, border: f32, stroke: Color) {
+    pub(crate) fn rounded_rect(
+        &mut self,
+        r: Rect,
+        radius: f32,
+        fill: Color,
+        border: f32,
+        stroke: Color,
+    ) {
         let fill = fill.premultiplied();
         let stroke = stroke.premultiplied();
         let radius = radius.clamp(0.0, (r.w.min(r.h)) / 2.0);
@@ -115,7 +135,13 @@ impl Image {
         for row in 0..h {
             for col in 0..w {
                 let i = ((row * w + col) * 4) as usize;
-                let px = Color { r: data[i], g: data[i + 1], b: data[i + 2], a: data[i + 3] }.premultiplied();
+                let px = Color {
+                    r: data[i],
+                    g: data[i + 1],
+                    b: data[i + 2],
+                    a: data[i + 3],
+                }
+                .premultiplied();
                 self.blend(x + col as i32, y + row as i32, px, u32::from(alpha));
             }
         }
@@ -168,7 +194,18 @@ mod tests {
     fn rounded_rect_is_solid_inside_and_clear_outside() {
         let mut img = Image::new(40, 20);
         let white = Color::rgb(0xffffff);
-        img.rounded_rect(Rect { x: 2.0, y: 2.0, w: 36.0, h: 16.0 }, 6.0, white, 0.0, white);
+        img.rounded_rect(
+            Rect {
+                x: 2.0,
+                y: 2.0,
+                w: 36.0,
+                h: 16.0,
+            },
+            6.0,
+            white,
+            0.0,
+            white,
+        );
         assert_eq!(img.pixels[10 * 40 + 20], 0xffff_ffff);
         // Corners are cut, edges outside the rectangle are untouched.
         assert_eq!(img.pixels[2 * 40 + 2], 0);
@@ -181,7 +218,18 @@ mod tests {
     fn border_covers_only_the_edge() {
         let mut img = Image::new(30, 30);
         let clear = Color::rgb(0).with_alpha(0);
-        img.rounded_rect(Rect { x: 0.0, y: 0.0, w: 30.0, h: 30.0 }, 0.0, clear, 2.0, Color::rgb(0xff0000));
+        img.rounded_rect(
+            Rect {
+                x: 0.0,
+                y: 0.0,
+                w: 30.0,
+                h: 30.0,
+            },
+            0.0,
+            clear,
+            2.0,
+            Color::rgb(0xff0000),
+        );
         assert_eq!(img.pixels[15 * 30], 0xffff_0000);
         assert_eq!(img.pixels[15 * 30 + 1], 0xffff_0000);
         assert_eq!(img.pixels[15 * 30 + 15], 0);

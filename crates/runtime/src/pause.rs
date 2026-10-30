@@ -50,11 +50,20 @@ pub(crate) struct Pauses {
 impl Pauses {
     pub(crate) fn set(&mut self, scope: Scope, length: PauseFor, now: Instant) {
         let until = match length {
-            PauseFor::UntilResumed => Until { at: None, at_ms: None },
+            PauseFor::UntilResumed => Until {
+                at: None,
+                at_ms: None,
+            },
             PauseFor::Minutes(m) => {
                 let d = Duration::from_secs(u64::from(m.max(1)) * 60);
-                let ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default() + d;
-                Until { at: Some(now + d), at_ms: Some(ms.as_millis() as u64) }
+                let ms = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    + d;
+                Until {
+                    at: Some(now + d),
+                    at_ms: Some(ms.as_millis() as u64),
+                }
             }
         };
         match scope {
@@ -90,16 +99,27 @@ impl Pauses {
     }
 
     pub(crate) fn next_deadline(&self) -> Option<Instant> {
-        self.all.iter().chain(self.apps.values().map(|(_, u)| u)).filter_map(|u| u.at).min()
+        self.all
+            .iter()
+            .chain(self.apps.values().map(|(_, u)| u))
+            .filter_map(|u| u.at)
+            .min()
     }
 
     /// The pause state as the controller takes it.
     pub(crate) fn state(&self) -> Pause {
-        Pause { all: self.all.is_some(), apps: self.apps.keys().cloned().collect() }
+        Pause {
+            all: self.all.is_some(),
+            apps: self.apps.keys().cloned().collect(),
+        }
     }
 
     pub(crate) fn list(&self) -> Vec<PauseInfo> {
-        let all = self.all.iter().map(|u| PauseInfo { app: None, name: None, until_ms: u.at_ms });
+        let all = self.all.iter().map(|u| PauseInfo {
+            app: None,
+            name: None,
+            until_ms: u.at_ms,
+        });
         let apps = self.apps.iter().map(|(id, (name, u))| PauseInfo {
             app: Some(id.clone()),
             name: Some(name.clone()),
@@ -137,11 +157,18 @@ fn utc_offset_minutes(ms: u64) -> i64 {
 
 #[cfg(windows)]
 fn utc_offset_minutes(_ms: u64) -> i64 {
-    use windows_sys::Win32::System::Time::{GetTimeZoneInformation, TIME_ZONE_ID_DAYLIGHT, TIME_ZONE_INFORMATION};
+    use windows_sys::Win32::System::Time::{
+        GetTimeZoneInformation, TIME_ZONE_ID_DAYLIGHT, TIME_ZONE_INFORMATION,
+    };
     // SAFETY: all-zero is a valid TIME_ZONE_INFORMATION, and `tz` is a valid out-pointer.
     let mut tz: TIME_ZONE_INFORMATION = unsafe { std::mem::zeroed() };
     let kind = unsafe { GetTimeZoneInformation(&mut tz) };
-    let bias = tz.Bias + if kind == TIME_ZONE_ID_DAYLIGHT { tz.DaylightBias } else { tz.StandardBias };
+    let bias = tz.Bias
+        + if kind == TIME_ZONE_ID_DAYLIGHT {
+            tz.DaylightBias
+        } else {
+            tz.StandardBias
+        };
     -i64::from(bias)
 }
 
@@ -152,7 +179,10 @@ fn utc_offset_minutes(_ms: u64) -> i64 {
 
 /// Unix milliseconds now.
 pub(crate) fn now_ms() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
 }
 
 #[cfg(test)]
@@ -160,7 +190,10 @@ mod tests {
     use super::*;
 
     fn app(id: &str) -> Scope {
-        Scope::App { id: id.into(), name: id.to_uppercase() }
+        Scope::App {
+            id: id.into(),
+            name: id.to_uppercase(),
+        }
     }
 
     #[test]
@@ -168,7 +201,13 @@ mod tests {
         let now = Instant::now();
         let mut p = Pauses::default();
         p.set(Scope::All, PauseFor::Minutes(15), now);
-        assert_eq!(p.state(), Pause { all: true, apps: vec![] });
+        assert_eq!(
+            p.state(),
+            Pause {
+                all: true,
+                apps: vec![]
+            }
+        );
         assert_eq!(p.next_deadline(), Some(now + Duration::from_secs(900)));
         assert!(!p.expire(now + Duration::from_secs(899)));
         assert!(p.expire(now + Duration::from_secs(900)));
@@ -181,7 +220,13 @@ mod tests {
         let now = Instant::now();
         let mut p = Pauses::default();
         p.set(app("slack"), PauseFor::UntilResumed, now);
-        assert_eq!(p.state(), Pause { all: false, apps: vec!["slack".into()] });
+        assert_eq!(
+            p.state(),
+            Pause {
+                all: false,
+                apps: vec!["slack".into()]
+            }
+        );
         assert_eq!(p.next_deadline(), None);
         assert!(!p.expire(now + Duration::from_secs(86_400)));
         p.resume(Some("slack"));
@@ -204,7 +249,8 @@ mod tests {
         let ms = 1_700_000_000_000;
         let s = local_clock(ms);
         assert_eq!((s.len(), &s[2..3]), (5, ":"));
-        let minutes_into_day: u64 = s[..2].parse::<u64>().unwrap() * 60 + s[3..].parse::<u64>().unwrap();
+        let minutes_into_day: u64 =
+            s[..2].parse::<u64>().unwrap() * 60 + s[3..].parse::<u64>().unwrap();
         // The next local midnight starts the next day.
         let to_midnight = (24 * 60 - minutes_into_day) * 60_000;
         assert_eq!(local_day(ms + to_midnight), local_day(ms) + 1);

@@ -36,8 +36,18 @@ pub(crate) struct Buffers {
 
 impl Buffers {
     pub fn new() -> Buffers {
-        let slot = || Slot { buffer: None, width: 0, height: 0, busy: false };
-        Buffers { pool: None, generation: 0, slot_bytes: 0, slots: [slot(), slot()] }
+        let slot = || Slot {
+            buffer: None,
+            width: 0,
+            height: 0,
+            busy: false,
+        };
+        Buffers {
+            pool: None,
+            generation: 0,
+            slot_bytes: 0,
+            slots: [slot(), slot()],
+        }
     }
 
     /// Copies `pixels` (premultiplied ARGB8888 rows of `width`) into a free
@@ -65,7 +75,10 @@ impl Buffers {
                 old.destroy();
             }
             let offset = (slot * self.slot_bytes) as i32;
-            let id = BufferId { generation: self.generation, slot };
+            let id = BufferId {
+                generation: self.generation,
+                slot,
+            };
             s.buffer = Some(pool.create_buffer(
                 offset,
                 width as i32,

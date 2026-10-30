@@ -47,12 +47,19 @@ impl Face {
     }
 
     pub fn font(&self) -> FontRef<'_> {
-        FontRef { data: &self.map, offset: self.offset, key: self.key }
+        FontRef {
+            data: &self.map,
+            offset: self.offset,
+            key: self.key,
+        }
     }
 
     /// Variation settings to apply when shaping and scaling this face.
     pub fn variations(&self) -> Option<Setting<f32>> {
-        self.wght.map(|value| Setting { tag: tag_from_bytes(b"wght"), value })
+        self.wght.map(|value| Setting {
+            tag: tag_from_bytes(b"wght"),
+            value,
+        })
     }
 
     fn maps(&self, ch: char) -> bool {
@@ -102,7 +109,11 @@ impl Fonts {
 
     fn located(&self, id: FaceId) -> Located {
         let face = self.face(id);
-        Located { path: face.source.0.clone(), index: face.source.1, wght: face.wght }
+        Located {
+            path: face.source.0.clone(),
+            index: face.source.1,
+            wght: face.wght,
+        }
     }
 
     fn push(&mut self, face: Face) -> FaceId {
@@ -113,7 +124,10 @@ impl Fonts {
     fn first_openable(&mut self, candidates: &[Located], weight: f32) -> Option<FaceId> {
         candidates.iter().find_map(|located| {
             let mut face = self.find_or_open(located)?;
-            if weight >= BOLD && located.wght.is_none() && face_weight(&self.faces[face as usize]) < 600 {
+            if weight >= BOLD
+                && located.wght.is_none()
+                && face_weight(&self.faces[face as usize]) < 600
+            {
                 // A regular face returned for a bold request.
                 let mut synthetic = Face::open(located)?;
                 synthetic.synthetic_bold = true;
@@ -125,7 +139,10 @@ impl Fonts {
 
     fn find_or_open(&mut self, located: &Located) -> Option<FaceId> {
         let existing = self.faces.iter().position(|f| {
-            f.source.0 == located.path && f.source.1 == located.index && f.wght == located.wght && !f.synthetic_bold
+            f.source.0 == located.path
+                && f.source.1 == located.index
+                && f.wght == located.wght
+                && !f.synthetic_bold
         });
         match existing {
             Some(i) => Some(i as FaceId),
@@ -142,7 +159,10 @@ impl Fonts {
         let weight = if bold { BOLD } else { REGULAR };
         let found = system::locate(weight, Some(ch), color)
             .iter()
-            .find_map(|located| self.find_or_open(located).filter(|&id| self.face(id).maps(ch)));
+            .find_map(|located| {
+                self.find_or_open(located)
+                    .filter(|&id| self.face(id).maps(ch))
+            });
         if let Some(id) = found
             && !color
             && !self.fallbacks.contains(&id)
@@ -238,6 +258,9 @@ impl Selector for FaceSelector<'_> {
 
 impl FaceSelector<'_> {
     fn chosen(&self, id: FaceId) -> Chosen {
-        Chosen { id, face: self.fonts.face(id).clone() }
+        Chosen {
+            id,
+            face: self.fonts.face(id).clone(),
+        }
     }
 }

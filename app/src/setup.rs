@@ -27,7 +27,9 @@ pub struct SetupStore {
 
 impl SetupStore {
     pub fn new(config_dir: &Path) -> SetupStore {
-        SetupStore { path: config_dir.join("setup.toml") }
+        SetupStore {
+            path: config_dir.join("setup.toml"),
+        }
     }
 
     /// The saved step; a missing or unreadable file starts setup from the top.

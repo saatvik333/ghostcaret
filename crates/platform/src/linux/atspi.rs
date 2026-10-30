@@ -72,7 +72,16 @@ fn a11y_bus() -> zbus::Result<Connection> {
 /// An accessible object: its owner's bus name and object path, `(so)` on
 /// the bus.
 #[derive(
-    Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, zvariant::Type, zvariant::Value, zvariant::OwnedValue,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    zvariant::Type,
+    zvariant::Value,
+    zvariant::OwnedValue,
 )]
 struct Node {
     bus: String,
@@ -81,7 +90,10 @@ struct Node {
 
 impl Node {
     fn new(bus: impl Into<String>, path: &str) -> Option<Node> {
-        Some(Node { bus: bus.into(), path: OwnedObjectPath::try_from(path).ok()? })
+        Some(Node {
+            bus: bus.into(),
+            path: OwnedObjectPath::try_from(path).ok()?,
+        })
     }
 }
 
@@ -104,22 +116,36 @@ impl Tree<'_> {
     }
 
     fn states(&self, node: &Node) -> u64 {
-        let words: Vec<u32> = self.proxy(node, ACCESSIBLE).and_then(|p| p.call("GetState", &()).ok()).unwrap_or_default();
-        words.iter().take(2).enumerate().fold(0, |acc, (i, &w)| acc | u64::from(w) << (32 * i))
+        let words: Vec<u32> = self
+            .proxy(node, ACCESSIBLE)
+            .and_then(|p| p.call("GetState", &()).ok())
+            .unwrap_or_default();
+        words
+            .iter()
+            .take(2)
+            .enumerate()
+            .fold(0, |acc, (i, &w)| acc | u64::from(w) << (32 * i))
     }
 
     fn role(&self, node: &Node) -> u32 {
-        self.proxy(node, ACCESSIBLE).and_then(|p| p.call("GetRole", &()).ok()).unwrap_or(0)
+        self.proxy(node, ACCESSIBLE)
+            .and_then(|p| p.call("GetRole", &()).ok())
+            .unwrap_or(0)
     }
 
     fn name(&self, node: &Node) -> String {
-        self.proxy(node, ACCESSIBLE).and_then(|p| p.get_property("Name").ok()).unwrap_or_default()
+        self.proxy(node, ACCESSIBLE)
+            .and_then(|p| p.get_property("Name").ok())
+            .unwrap_or_default()
     }
 
     /// The node's text with each embedded-object mark replaced by the text of
     /// the child it stands for.
     fn text(&mut self, node: &Node, depth: usize) -> Option<String> {
-        let text: String = self.proxy(node, TEXT)?.call("GetText", &(0i32, -1i32)).ok()?;
+        let text: String = self
+            .proxy(node, TEXT)?
+            .call("GetText", &(0i32, -1i32))
+            .ok()?;
         if !text.contains(EMBEDDED) || depth > 8 {
             return Some(text.replace(EMBEDDED, ""));
         }
@@ -147,7 +173,10 @@ fn has(states: u64, bit: u32) -> bool {
 
 /// Letters and digits only, lower-cased, for matching app names.
 fn normalize(s: &str) -> String {
-    s.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect()
+    s.chars()
+        .filter(|c| c.is_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
 }
 
 /// Whether an AT-SPI application name refers to the Wayland app.
@@ -156,7 +185,11 @@ fn same_app(atspi_name: &str, app: &AppInfo) -> bool {
     if n.is_empty() {
         return false;
     }
-    let last_segment = app.id.rsplit('.').find(|s| !s.eq_ignore_ascii_case("desktop")).unwrap_or(&app.id);
+    let last_segment = app
+        .id
+        .rsplit('.')
+        .find(|s| !s.eq_ignore_ascii_case("desktop"))
+        .unwrap_or(&app.id);
     [app.name.as_str(), app.id.as_str(), last_segment]
         .iter()
         .map(|c| normalize(c))
@@ -174,20 +207,29 @@ impl Reader {
     /// The visible messages above the focused field of `app`, oldest first.
     pub fn read(&mut self, app: &AppInfo) -> Option<Conversation> {
         if self.bus.is_none() {
-            self.bus = a11y_bus().map_err(|e| log::warn!("accessibility bus unavailable: {e}")).ok();
+            self.bus = a11y_bus()
+                .map_err(|e| log::warn!("accessibility bus unavailable: {e}"))
+                .ok();
         }
         let bus = self.bus.as_ref()?;
         let mut tree = Tree { bus, visited: 0 };
         let root = Node::new(REGISTRY, ROOT)?;
         let apps = tree.children(&root);
         // Named matches first; any app with an active window after.
-        let (named, others): (Vec<_>, Vec<_>) = apps.into_iter().partition(|a| same_app(&tree.name(a), app));
+        let (named, others): (Vec<_>, Vec<_>) =
+            apps.into_iter().partition(|a| same_app(&tree.name(a), app));
         let frame = named.iter().chain(&others).find_map(|a| {
             let frames = tree.children(a);
-            frames.into_iter().find(|f| has(tree.states(f), STATE_ACTIVE))
+            frames
+                .into_iter()
+                .find(|f| has(tree.states(f), STATE_ACTIVE))
         })?;
         let messages = messages_before_focus(&mut tree, &frame)?;
-        log::debug!("read {} messages from {} accessible objects", messages.len(), tree.visited);
+        log::debug!(
+            "read {} messages from {} accessible objects",
+            messages.len(),
+            tree.visited
+        );
         Some(Conversation { messages })
     }
 }
@@ -202,10 +244,19 @@ fn messages_before_focus(tree: &mut Tree<'_>, frame: &Node) -> Option<Vec<Messag
         container: usize,
     }
     let mut blocks: Vec<(usize, String)> = Vec::new();
-    let mut stack = vec![Visit { node: frame.clone(), depth: 0, container: 0 }];
+    let mut stack = vec![Visit {
+        node: frame.clone(),
+        depth: 0,
+        container: 0,
+    }];
     let mut containers = vec![frame.clone()];
     let mut focused_container = None;
-    while let Some(Visit { node, depth, container }) = stack.pop() {
+    while let Some(Visit {
+        node,
+        depth,
+        container,
+    }) = stack.pop()
+    {
         if tree.visited >= MAX_NODES || depth > MAX_DEPTH {
             break;
         }
@@ -236,7 +287,11 @@ fn messages_before_focus(tree: &mut Tree<'_>, frame: &Node) -> Option<Vec<Messag
         }
         let children = tree.children(&node);
         for child in children.into_iter().rev() {
-            stack.push(Visit { node: child, depth: depth + 1, container });
+            stack.push(Visit {
+                node: child,
+                depth: depth + 1,
+                container,
+            });
         }
     }
     let container = focused_container?;
@@ -257,7 +312,14 @@ fn messages_before_focus(tree: &mut Tree<'_>, frame: &Node) -> Option<Vec<Messag
     });
     kept.truncate(MAX_MESSAGES);
     kept.reverse();
-    Some(kept.into_iter().map(|text| Message { author: Author::Unknown, text }).collect())
+    Some(
+        kept.into_iter()
+            .map(|text| Message {
+                author: Author::Unknown,
+                text,
+            })
+            .collect(),
+    )
 }
 
 fn is_block(role: u32) -> bool {
@@ -377,7 +439,10 @@ mod announce {
             HashMap::new()
         }
         fn get_interfaces(&self) -> Vec<String> {
-            vec!["org.a11y.atspi.Accessible".into(), "org.a11y.atspi.Application".into()]
+            vec![
+                "org.a11y.atspi.Accessible".into(),
+                "org.a11y.atspi.Application".into(),
+            ]
         }
     }
 
@@ -430,8 +495,14 @@ mod announce {
 
     pub(super) fn register() -> zbus::Result<App> {
         let bus = a11y_bus()?;
-        let registry_root = Node::new(REGISTRY, ROOT).ok_or(zbus::Error::Failure("bad registry path".into()))?;
-        bus.object_server().at(ROOT, Root { parent: registry_root })?;
+        let registry_root =
+            Node::new(REGISTRY, ROOT).ok_or(zbus::Error::Failure("bad registry path".into()))?;
+        bus.object_server().at(
+            ROOT,
+            Root {
+                parent: registry_root,
+            },
+        )?;
         bus.object_server().at(ROOT, Application { id: 0 })?;
         bus.object_server().at(ROOT, Events)?;
         let unique = bus.unique_name().map(|n| n.to_string()).unwrap_or_default();
@@ -462,16 +533,32 @@ mod tests {
     use super::*;
 
     fn app(id: &str, name: &str) -> AppInfo {
-        AppInfo { id: id.into(), name: name.into(), title: String::new() }
+        AppInfo {
+            id: id.into(),
+            name: name.into(),
+            title: String::new(),
+        }
     }
 
     #[test]
     fn matches_atspi_names_to_wayland_apps() {
         assert!(same_app("Firefox", &app("firefox", "Firefox")));
-        assert!(same_app("Google Chrome", &app("google-chrome", "Google Chrome")));
-        assert!(same_app("Telegram", &app("org.telegram.desktop", "Telegram Desktop")));
-        assert!(same_app("ghostty", &app("com.mitchellh.ghostty", "Ghostty")));
-        assert!(!same_app("Firefox", &app("org.telegram.desktop", "Telegram Desktop")));
+        assert!(same_app(
+            "Google Chrome",
+            &app("google-chrome", "Google Chrome")
+        ));
+        assert!(same_app(
+            "Telegram",
+            &app("org.telegram.desktop", "Telegram Desktop")
+        ));
+        assert!(same_app(
+            "ghostty",
+            &app("com.mitchellh.ghostty", "Ghostty")
+        ));
+        assert!(!same_app(
+            "Firefox",
+            &app("org.telegram.desktop", "Telegram Desktop")
+        ));
         assert!(!same_app("", &app("firefox", "Firefox")));
     }
 }

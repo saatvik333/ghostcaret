@@ -52,7 +52,8 @@ pub struct Stats {
 
 impl Stats {
     pub fn open(data_dir: &Path) -> rusqlite::Result<Stats> {
-        std::fs::create_dir_all(data_dir).map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
+        std::fs::create_dir_all(data_dir)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
         let path = data_dir.join("stats.sqlite");
         let conn = Connection::open(&path)?;
         conn.execute_batch(SCHEMA)?;
@@ -96,8 +97,16 @@ impl Stats {
     /// Apps seen so far, most recent first.
     pub fn apps(&self) -> rusqlite::Result<Vec<SeenApp>> {
         let conn = Connection::open_with_flags(&self.path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
-        let mut stmt = conn.prepare_cached("SELECT id, name, last_seen FROM apps ORDER BY last_seen DESC, name")?;
-        stmt.query_map([], |r| Ok(SeenApp { id: r.get(0)?, name: r.get(1)?, last_seen: r.get(2)? }))?.collect()
+        let mut stmt = conn
+            .prepare_cached("SELECT id, name, last_seen FROM apps ORDER BY last_seen DESC, name")?;
+        stmt.query_map([], |r| {
+            Ok(SeenApp {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                last_seen: r.get(2)?,
+            })
+        })?
+        .collect()
     }
 }
 
@@ -110,7 +119,14 @@ fn writer(conn: Connection, rx: Receiver<Msg>) {
 }
 
 fn apply(conn: &Connection, msg: Msg) -> rusqlite::Result<()> {
-    let bump = |app: &str, shown: u32, accepted: u32, whole: u32, dismissed: u32, chars: u32, saved: u32, drafts: u32| {
+    let bump = |app: &str,
+                shown: u32,
+                accepted: u32,
+                whole: u32,
+                dismissed: u32,
+                chars: u32,
+                saved: u32,
+                drafts: u32| {
         conn.prepare_cached(
             "INSERT INTO daily (day, app, shown, accepted, accepted_whole, dismissed, chars, keystrokes_saved, drafts)
              VALUES (date('now', 'localtime'), ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
@@ -126,7 +142,16 @@ fn apply(conn: &Connection, msg: Msg) -> rusqlite::Result<()> {
         Msg::Record(Stat::Shown { app }) => bump(&app, 1, 0, 0, 0, 0, 0, 0),
         Msg::Record(Stat::Accepted { app, chars, whole }) => {
             // One accept key replaces `chars` typed keys.
-            bump(&app, 0, 1, u32::from(whole), 0, chars, chars.saturating_sub(1), 0)
+            bump(
+                &app,
+                0,
+                1,
+                u32::from(whole),
+                0,
+                chars,
+                chars.saturating_sub(1),
+                0,
+            )
         }
         Msg::Record(Stat::Dismissed { app }) => bump(&app, 0, 0, 0, 1, 0, 0, 0),
         Msg::Record(Stat::DraftInserted { app }) => bump(&app, 0, 0, 0, 0, 0, 0, 1),
@@ -135,7 +160,14 @@ fn apply(conn: &Connection, msg: Msg) -> rusqlite::Result<()> {
                 "INSERT INTO apps (id, name, last_seen) VALUES (?1, ?2, date('now', 'localtime'))
                  ON CONFLICT (id) DO UPDATE SET name = ?2, last_seen = date('now', 'localtime')",
             )?
-            .execute(params![app.id, if app.name.is_empty() { &app.id } else { &app.name }])
+            .execute(params![
+                app.id,
+                if app.name.is_empty() {
+                    &app.id
+                } else {
+                    &app.name
+                }
+            ])
             .map(drop),
         Msg::CloudRequest => conn
             .prepare_cached(
@@ -150,8 +182,10 @@ fn apply(conn: &Connection, msg: Msg) -> rusqlite::Result<()> {
 }
 
 fn query_cloud_today(conn: &Connection) -> rusqlite::Result<u32> {
-    conn.prepare_cached("SELECT COALESCE(SUM(count), 0) FROM cloud_requests WHERE day = date('now', 'localtime')")?
-        .query_row([], |r| r.get(0))
+    conn.prepare_cached(
+        "SELECT COALESCE(SUM(count), 0) FROM cloud_requests WHERE day = date('now', 'localtime')",
+    )?
+    .query_row([], |r| r.get(0))
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
@@ -239,18 +273,55 @@ mod tests {
     fn counters_accumulate_per_app_and_day() {
         let conn = memory();
         let app = || "org.telegram.desktop".to_owned();
-        apply(&conn, Msg::Seen(AppInfo { id: app(), name: "Telegram".into(), title: "secret chat".into() })).unwrap();
+        apply(
+            &conn,
+            Msg::Seen(AppInfo {
+                id: app(),
+                name: "Telegram".into(),
+                title: "secret chat".into(),
+            }),
+        )
+        .unwrap();
         apply(&conn, Msg::Record(Stat::Shown { app: app() })).unwrap();
         apply(&conn, Msg::Record(Stat::Shown { app: app() })).unwrap();
-        apply(&conn, Msg::Record(Stat::Accepted { app: app(), chars: 12, whole: true })).unwrap();
-        apply(&conn, Msg::Record(Stat::Accepted { app: app(), chars: 4, whole: false })).unwrap();
-        apply(&conn, Msg::Record(Stat::Dismissed { app: "firefox".into() })).unwrap();
+        apply(
+            &conn,
+            Msg::Record(Stat::Accepted {
+                app: app(),
+                chars: 12,
+                whole: true,
+            }),
+        )
+        .unwrap();
+        apply(
+            &conn,
+            Msg::Record(Stat::Accepted {
+                app: app(),
+                chars: 4,
+                whole: false,
+            }),
+        )
+        .unwrap();
+        apply(
+            &conn,
+            Msg::Record(Stat::Dismissed {
+                app: "firefox".into(),
+            }),
+        )
+        .unwrap();
         let usage = query_usage(&conn, 7).unwrap();
         let tg = usage.apps.iter().find(|a| a.app == app()).unwrap();
         assert_eq!(tg.name, "Telegram");
         assert_eq!(
             tg.counts,
-            Counts { shown: 2, accepted: 2, accepted_whole: 1, chars: 16, keystrokes_saved: 14, ..Counts::default() }
+            Counts {
+                shown: 2,
+                accepted: 2,
+                accepted_whole: 1,
+                chars: 16,
+                keystrokes_saved: 14,
+                ..Counts::default()
+            }
         );
         assert_eq!(usage.days.len(), 1);
         assert_eq!(usage.days[0].counts.dismissed, 1);
@@ -260,7 +331,15 @@ mod tests {
     #[test]
     fn stores_no_window_titles() {
         let conn = memory();
-        apply(&conn, Msg::Seen(AppInfo { id: "a".into(), name: "A".into(), title: "private title".into() })).unwrap();
+        apply(
+            &conn,
+            Msg::Seen(AppInfo {
+                id: "a".into(),
+                name: "A".into(),
+                title: "private title".into(),
+            }),
+        )
+        .unwrap();
         let dump: Vec<String> = conn
             .prepare("SELECT id || name || last_seen FROM apps")
             .unwrap()
@@ -278,7 +357,11 @@ mod tests {
         for _ in 0..3 {
             apply(&conn, Msg::CloudRequest).unwrap();
         }
-        conn.execute("INSERT INTO cloud_requests (day, count) VALUES ('2000-01-01', 50)", []).unwrap();
+        conn.execute(
+            "INSERT INTO cloud_requests (day, count) VALUES ('2000-01-01', 50)",
+            [],
+        )
+        .unwrap();
         apply(&conn, Msg::Clear).unwrap();
         assert_eq!(query_cloud_today(&conn).unwrap(), 3);
     }

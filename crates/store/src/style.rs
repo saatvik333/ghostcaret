@@ -29,9 +29,19 @@ CREATE INDEX IF NOT EXISTS sent_app ON sent (app, id);
 type Reply = Box<dyn FnOnce(Vec<String>) + Send>;
 
 enum Msg {
-    Remember { app: String, text: String, at_ms: u64 },
-    Load { app: String, reply: Reply },
-    Delete { id: Option<i64>, app: Option<String> },
+    Remember {
+        app: String,
+        text: String,
+        at_ms: u64,
+    },
+    Load {
+        app: String,
+        reply: Reply,
+    },
+    Delete {
+        id: Option<i64>,
+        app: Option<String>,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -50,7 +60,8 @@ pub struct Sample {
 
 impl StyleMemory {
     pub fn open(data_dir: &Path) -> rusqlite::Result<StyleMemory> {
-        std::fs::create_dir_all(data_dir).map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
+        std::fs::create_dir_all(data_dir)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
         let path = data_dir.join("style.sqlite");
         let conn = Connection::open(&path)?;
         conn.execute_batch(SCHEMA)?;
@@ -69,7 +80,10 @@ impl StyleMemory {
     /// Calls `reply` on the style thread with the app's recent samples,
     /// oldest first.
     pub fn load(&self, app: String, reply: impl FnOnce(Vec<String>) + Send + 'static) {
-        let _ = self.tx.send(Msg::Load { app, reply: Box::new(reply) });
+        let _ = self.tx.send(Msg::Load {
+            app,
+            reply: Box::new(reply),
+        });
     }
 
     /// Deletes one sample, every sample of one app, or everything.
@@ -81,8 +95,15 @@ impl StyleMemory {
     pub fn all(&self) -> rusqlite::Result<Vec<Sample>> {
         let conn = Connection::open_with_flags(&self.path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
         let mut stmt = conn.prepare("SELECT id, app, at_ms, text FROM sent ORDER BY id DESC")?;
-        stmt.query_map([], |r| Ok(Sample { id: r.get(0)?, app: r.get(1)?, at_ms: r.get(2)?, text: r.get(3)? }))?
-            .collect()
+        stmt.query_map([], |r| {
+            Ok(Sample {
+                id: r.get(0)?,
+                app: r.get(1)?,
+                at_ms: r.get(2)?,
+                text: r.get(3)?,
+            })
+        })?
+        .collect()
     }
 }
 
@@ -110,12 +131,20 @@ fn apply(conn: &Connection, msg: Msg) -> rusqlite::Result<()> {
             reply(samples);
         }
         Msg::Delete { id: Some(id), .. } => {
-            conn.prepare_cached("DELETE FROM sent WHERE id = ?1")?.execute([id])?;
+            conn.prepare_cached("DELETE FROM sent WHERE id = ?1")?
+                .execute([id])?;
         }
-        Msg::Delete { id: None, app: Some(app) } => {
-            conn.prepare_cached("DELETE FROM sent WHERE app = ?1")?.execute([app])?;
+        Msg::Delete {
+            id: None,
+            app: Some(app),
+        } => {
+            conn.prepare_cached("DELETE FROM sent WHERE app = ?1")?
+                .execute([app])?;
         }
-        Msg::Delete { id: None, app: None } => conn.execute_batch("DELETE FROM sent; VACUUM;")?,
+        Msg::Delete {
+            id: None,
+            app: None,
+        } => conn.execute_batch("DELETE FROM sent; VACUUM;")?,
     }
     Ok(())
 }
@@ -140,7 +169,15 @@ mod tests {
     }
 
     fn remember(conn: &Connection, app: &str, text: &str) {
-        apply(conn, Msg::Remember { app: app.into(), text: text.into(), at_ms: 1 }).unwrap();
+        apply(
+            conn,
+            Msg::Remember {
+                app: app.into(),
+                text: text.into(),
+                at_ms: 1,
+            },
+        )
+        .unwrap();
     }
 
     #[test]
@@ -151,7 +188,10 @@ mod tests {
         }
         remember(&conn, "mail", "other");
         let samples = recent(&conn, "chat").unwrap();
-        assert_eq!(samples, (4..12).map(|i| format!("m{i}")).collect::<Vec<_>>());
+        assert_eq!(
+            samples,
+            (4..12).map(|i| format!("m{i}")).collect::<Vec<_>>()
+        );
         assert_eq!(recent(&conn, "mail").unwrap(), vec!["other"]);
     }
 
@@ -161,7 +201,9 @@ mod tests {
         for i in 0..(KEPT_PER_APP + 10) {
             remember(&conn, "chat", &i.to_string());
         }
-        let n: u32 = conn.query_row("SELECT COUNT(*) FROM sent", [], |r| r.get(0)).unwrap();
+        let n: u32 = conn
+            .query_row("SELECT COUNT(*) FROM sent", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(n, KEPT_PER_APP);
     }
 
@@ -171,11 +213,32 @@ mod tests {
         remember(&conn, "a", "1");
         remember(&conn, "a", "2");
         remember(&conn, "b", "3");
-        apply(&conn, Msg::Delete { id: Some(1), app: None }).unwrap();
+        apply(
+            &conn,
+            Msg::Delete {
+                id: Some(1),
+                app: None,
+            },
+        )
+        .unwrap();
         assert_eq!(recent(&conn, "a").unwrap(), vec!["2"]);
-        apply(&conn, Msg::Delete { id: None, app: Some("a".into()) }).unwrap();
+        apply(
+            &conn,
+            Msg::Delete {
+                id: None,
+                app: Some("a".into()),
+            },
+        )
+        .unwrap();
         assert!(recent(&conn, "a").unwrap().is_empty());
-        apply(&conn, Msg::Delete { id: None, app: None }).unwrap();
+        apply(
+            &conn,
+            Msg::Delete {
+                id: None,
+                app: None,
+            },
+        )
+        .unwrap();
         assert!(recent(&conn, "b").unwrap().is_empty());
     }
 }

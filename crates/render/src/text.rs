@@ -97,15 +97,25 @@ impl Text {
         match self.fonts.primary(style.bold) {
             Some(id) => {
                 let m = self.fonts.face(id).font().metrics(&[]).scale(style.size);
-                LineMetrics { ascent: m.ascent, height: (m.ascent + m.descent + m.leading).ceil() }
+                LineMetrics {
+                    ascent: m.ascent,
+                    height: (m.ascent + m.descent + m.leading).ceil(),
+                }
             }
-            None => LineMetrics { ascent: style.size * 0.8, height: (style.size * 1.25).ceil() },
+            None => LineMetrics {
+                ascent: style.size * 0.8,
+                height: (style.size * 1.25).ceil(),
+            },
         }
     }
 
     pub fn shape(&mut self, text: &str, style: TextStyle) -> Shaped {
         self.fonts.ensure_loaded();
-        let mut out = Shaped { glyphs: Vec::new(), clusters: Vec::new(), style };
+        let mut out = Shaped {
+            glyphs: Vec::new(),
+            clusters: Vec::new(),
+            style,
+        };
         if text.is_empty() || self.fonts.primary(style.bold).is_none() {
             return out;
         }
@@ -127,32 +137,54 @@ impl Text {
                 size: style.size,
                 ..SimpleShapeOptions::default()
             };
-            let mut selector = FaceSelector { fonts: &mut self.fonts, bold: style.bold };
+            let mut selector = FaceSelector {
+                fonts: &mut self.fonts,
+                bold: style.bold,
+            };
             let tokens = tokens[run.tokens].iter().copied();
-            partition::shape(&mut self.shape, &mut selector, &options, tokens, |chosen, shaper| {
-                let face = chosen.id;
-                shaper.shape_with(|cluster| {
-                    let start = out.glyphs.len() as u32;
-                    let mut pen = 0.0;
-                    for g in cluster.glyphs {
-                        out.glyphs.push(Glyph { face, id: g.id, x: pen + g.x, y: g.y });
-                        pen += g.advance;
-                    }
-                    let space = cluster.info.whitespace();
-                    out.clusters.push(Cluster {
-                        glyphs: start..out.glyphs.len() as u32,
-                        advance: pen,
-                        boundary: cluster.info.boundary(),
-                        space: space != Whitespace::None && space != Whitespace::NoBreakSpace,
+            partition::shape(
+                &mut self.shape,
+                &mut selector,
+                &options,
+                tokens,
+                |chosen, shaper| {
+                    let face = chosen.id;
+                    shaper.shape_with(|cluster| {
+                        let start = out.glyphs.len() as u32;
+                        let mut pen = 0.0;
+                        for g in cluster.glyphs {
+                            out.glyphs.push(Glyph {
+                                face,
+                                id: g.id,
+                                x: pen + g.x,
+                                y: g.y,
+                            });
+                            pen += g.advance;
+                        }
+                        let space = cluster.info.whitespace();
+                        out.clusters.push(Cluster {
+                            glyphs: start..out.glyphs.len() as u32,
+                            advance: pen,
+                            boundary: cluster.info.boundary(),
+                            space: space != Whitespace::None && space != Whitespace::NoBreakSpace,
+                        });
                     });
-                });
-            });
+                },
+            );
         }
         out
     }
 
     /// Draws `line` with its left edge at `x` and baseline at `baseline`.
-    pub fn draw(&mut self, img: &mut Image, shaped: &Shaped, line: &Line, x: f32, baseline: f32, color: u32) {
+    pub fn draw(
+        &mut self,
+        img: &mut Image,
+        shaped: &Shaped,
+        line: &Line,
+        x: f32,
+        baseline: f32,
+        color: u32,
+    ) {
         let mut pen = x;
         let size = shaped.style.size;
         for cluster in &shaped.clusters[line.clusters.clone()] {
@@ -161,7 +193,12 @@ impl Text {
                 let gy = baseline - g.y;
                 let ix = gx.floor();
                 let subpx = ((gx - ix) * 4.0) as u8 & 3;
-                let key = GlyphKey { face: g.face, id: g.id, size: size.to_bits(), subpx };
+                let key = GlyphKey {
+                    face: g.face,
+                    id: g.id,
+                    size: size.to_bits(),
+                    subpx,
+                };
                 if !self.glyphs.contains_key(&key) {
                     if self.glyphs.len() >= GLYPH_CACHE_LIMIT {
                         self.glyphs.clear();
@@ -183,9 +220,23 @@ impl Text {
 
     fn rasterize(&mut self, key: GlyphKey, size: f32) -> Raster {
         let face = self.fonts.face(key.face).clone();
-        let mut scaler = self.scale.builder(face.font()).size(size).hint(true).variations(face.variations()).build();
-        let sources = [Source::ColorOutline(0), Source::ColorBitmap(StrikeWith::BestFit), Source::Outline];
-        let embolden = if face.synthetic_bold { size / 32.0 } else { 0.0 };
+        let mut scaler = self
+            .scale
+            .builder(face.font())
+            .size(size)
+            .hint(true)
+            .variations(face.variations())
+            .build();
+        let sources = [
+            Source::ColorOutline(0),
+            Source::ColorBitmap(StrikeWith::BestFit),
+            Source::Outline,
+        ];
+        let embolden = if face.synthetic_bold {
+            size / 32.0
+        } else {
+            0.0
+        };
         let image = Render::new(&sources)
             .format(Format::Alpha)
             .offset(Vector::new(f32::from(key.subpx) / 4.0, 0.0))
@@ -200,7 +251,14 @@ impl Text {
                 color: image.content == Content::Color,
                 data: image.data,
             },
-            None => Raster { left: 0, top: 0, width: 0, height: 0, color: false, data: Vec::new() },
+            None => Raster {
+                left: 0,
+                top: 0,
+                width: 0,
+                height: 0,
+                color: false,
+                data: Vec::new(),
+            },
         }
     }
 }
@@ -220,7 +278,10 @@ impl Shaped {
         let mut width = 0.0;
         // Index of the last break opportunity on the current line.
         let mut opportunity = None;
-        let line = |clusters: Range<usize>| Line { width: self.trimmed_width(clusters.clone()), clusters };
+        let line = |clusters: Range<usize>| Line {
+            width: self.trimmed_width(clusters.clone()),
+            clusters,
+        };
         for (i, c) in self.clusters.iter().enumerate() {
             if i > start {
                 if c.boundary == Boundary::Mandatory {
@@ -266,11 +327,17 @@ impl Shaped {
             let w = self.trimmed_width(candidate.clone());
             let ends_in_space = self.clusters[end - 1].space;
             if !ends_in_space && w + suffix_width <= max_width {
-                return Line { clusters: candidate, width: w };
+                return Line {
+                    clusters: candidate,
+                    width: w,
+                };
             }
             end -= 1;
         }
-        Line { clusters: line.clusters.start..line.clusters.start, width: 0.0 }
+        Line {
+            clusters: line.clusters.start..line.clusters.start,
+            width: 0.0,
+        }
     }
 }
 
@@ -310,14 +377,26 @@ fn script_runs(tokens: &[Token]) -> Vec<Run> {
         }
     }
     if start < tokens.len() {
-        runs.push(run(start..tokens.len(), script.unwrap_or(Script::Latin), rtl));
+        runs.push(run(
+            start..tokens.len(),
+            script.unwrap_or(Script::Latin),
+            rtl,
+        ));
     }
     runs
 }
 
 fn run(tokens: Range<usize>, script: Script, rtl: Option<bool>) -> Run {
-    let direction = if rtl == Some(true) { Direction::RightToLeft } else { Direction::LeftToRight };
-    Run { tokens, script, direction }
+    let direction = if rtl == Some(true) {
+        Direction::RightToLeft
+    } else {
+        Direction::LeftToRight
+    };
+    Run {
+        tokens,
+        script,
+        direction,
+    }
 }
 
 #[cfg(test)]
@@ -328,11 +407,17 @@ mod tests {
     fn text() -> Text {
         let mut t = Text::default();
         t.fonts.ensure_loaded();
-        assert!(t.fonts.primary(false).is_some(), "a system sans-serif font is required");
+        assert!(
+            t.fonts.primary(false).is_some(),
+            "a system sans-serif font is required"
+        );
         t
     }
 
-    const BODY: TextStyle = TextStyle { size: 16.0, bold: false };
+    const BODY: TextStyle = TextStyle {
+        size: 16.0,
+        bold: false,
+    };
 
     #[test]
     fn newline_forces_a_break() {
@@ -341,7 +426,11 @@ mod tests {
         let lines = shaped.wrap(1000.0);
         assert_eq!(lines.len(), 2);
         let one = t.shape("one", BODY).width();
-        assert!((lines[0].width - one).abs() < 0.5, "{} vs {one}", lines[0].width);
+        assert!(
+            (lines[0].width - one).abs() < 0.5,
+            "{} vs {one}",
+            lines[0].width
+        );
     }
 
     #[test]
@@ -351,7 +440,11 @@ mod tests {
         let one = t.shape("alpha", BODY).width();
         let lines = shaped.wrap(one * 1.5);
         assert_eq!(lines.len(), 3);
-        assert!((lines[0].width - one).abs() < 0.5, "{} vs {one}", lines[0].width);
+        assert!(
+            (lines[0].width - one).abs() < 0.5,
+            "{} vs {one}",
+            lines[0].width
+        );
     }
 
     #[test]
@@ -360,7 +453,10 @@ mod tests {
         let shaped = t.shape("a漢", BODY);
         let faces: Vec<FaceId> = shaped.glyphs.iter().map(|g| g.face).collect();
         assert_eq!(faces.len(), 2);
-        assert!(shaped.glyphs.iter().all(|g| g.id != 0), "a CJK fallback font is installed");
+        assert!(
+            shaped.glyphs.iter().all(|g| g.id != 0),
+            "a CJK fallback font is installed"
+        );
         assert_ne!(faces[0], faces[1]);
     }
 

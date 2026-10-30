@@ -26,7 +26,9 @@ fn data_dirs() -> Vec<PathBuf> {
         .ok()
         .filter(|v| !v.is_empty())
         .unwrap_or_else(|| "/usr/local/share:/usr/share".into());
-    home.into_iter().chain(dirs.split(':').filter(|d| !d.is_empty()).map(PathBuf::from)).collect()
+    home.into_iter()
+        .chain(dirs.split(':').filter(|d| !d.is_empty()).map(PathBuf::from))
+        .collect()
 }
 
 /// The untranslated `Name` key of the `[Desktop Entry]` group.

@@ -36,7 +36,9 @@ pub(crate) fn kind(hint: u32, purpose: u32) -> (FieldKind, bool) {
             PURPOSE_URL => FieldKind::Url,
             PURPOSE_EMAIL => FieldKind::Email,
             // Dates and times are structured numeric entry.
-            PURPOSE_DIGITS | PURPOSE_NUMBER | PURPOSE_DATE | PURPOSE_TIME | PURPOSE_DATETIME => FieldKind::Number,
+            PURPOSE_DIGITS | PURPOSE_NUMBER | PURPOSE_DATE | PURPOSE_TIME | PURPOSE_DATETIME => {
+                FieldKind::Number
+            }
             PURPOSE_PHONE => FieldKind::Phone,
             PURPOSE_TERMINAL => FieldKind::Terminal,
             _ => FieldKind::Text,
@@ -123,18 +125,34 @@ mod tests {
 
     #[test]
     fn selection_is_ordered_whichever_end_the_cursor_is() {
-        let s = Surrounding { text: "one two three".into(), cursor: 7, anchor: 4 };
+        let s = Surrounding {
+            text: "one two three".into(),
+            cursor: 7,
+            anchor: 4,
+        };
         let p = s.parts();
         assert_eq!((p.before, p.selection, p.after), ("one ", "two", " three"));
-        let s = Surrounding { anchor: 7, cursor: 4, ..s };
+        let s = Surrounding {
+            anchor: 7,
+            cursor: 4,
+            ..s
+        };
         assert_eq!(s.parts().selection, "two");
     }
 
     #[test]
     fn offsets_inside_a_character_move_back() {
-        let s = Surrounding { text: "héllo".into(), cursor: 2, anchor: 2 };
+        let s = Surrounding {
+            text: "héllo".into(),
+            cursor: 2,
+            anchor: 2,
+        };
         assert_eq!(s.parts().before, "h");
-        let s = Surrounding { text: "hi".into(), cursor: 99, anchor: 99 };
+        let s = Surrounding {
+            text: "hi".into(),
+            cursor: 99,
+            anchor: 99,
+        };
         assert_eq!(s.parts().before, "hi");
     }
 

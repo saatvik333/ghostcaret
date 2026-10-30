@@ -30,7 +30,9 @@ fn describe(e: &Error) -> String {
         Error::Ambiguous(_) => "more than one stored key matches".into(),
         Error::NoEntry => "no key stored".into(),
         Error::TooLong(attr, limit) => format!("`{attr}` is longer than {limit}"),
-        Error::BadStoreFormat(_) | Error::Invalid(..) | Error::NotSupportedByStore(_) => e.to_string(),
+        Error::BadStoreFormat(_) | Error::Invalid(..) | Error::NotSupportedByStore(_) => {
+            e.to_string()
+        }
         _ => "keychain error".into(),
     }
 }
@@ -44,7 +46,9 @@ pub fn get(provider_id: &str) -> Result<Option<String>, KeychainError> {
 }
 
 pub fn set(provider_id: &str, key: &str) -> Result<(), KeychainError> {
-    entry(provider_id)?.set_password(key).map_err(|e| KeychainError::Failed(describe(&e)))
+    entry(provider_id)?
+        .set_password(key)
+        .map_err(|e| KeychainError::Failed(describe(&e)))
 }
 
 pub fn delete(provider_id: &str) -> Result<(), KeychainError> {

@@ -153,12 +153,22 @@ impl Runtime {
     }
 
     pub fn status(&self) -> StatusView {
-        self.shared.status.lock().unwrap_or_else(|e| e.into_inner()).clone()
+        self.shared
+            .status
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 
     /// Timings of the latest autocomplete requests, oldest first.
     pub fn timings(&self) -> Vec<Timing> {
-        self.shared.timings.lock().unwrap_or_else(|e| e.into_inner()).iter().copied().collect()
+        self.shared
+            .timings
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .iter()
+            .copied()
+            .collect()
     }
 }
 
@@ -183,7 +193,12 @@ where
     start_with(host, config, backend, loader)
 }
 
-fn start_with<B>(host: Arc<dyn Host>, config: Config, backend: B, loader: Arc<dyn Loader>) -> io::Result<Runtime>
+fn start_with<B>(
+    host: Arc<dyn Host>,
+    config: Config,
+    backend: B,
+    loader: Arc<dyn Loader>,
+) -> io::Result<Runtime>
 where
     B: FnOnce(Sender<Event>) -> Result<Arc<dyn Backend>, String> + Send + 'static,
 {
@@ -198,10 +213,21 @@ where
     let Config { stats, style, .. } = config;
     let thread = {
         let (shared, events) = (shared.clone(), events.clone());
-        thread::Builder::new().name("oft-runtime".into()).spawn(move || {
-            let backend = backend(events);
-            Core::new(host, backend, stats, style, hub, workers, shared).run(&events_rx, &commands_rx, &hub_rx);
-        })?
+        thread::Builder::new()
+            .name("oft-runtime".into())
+            .spawn(move || {
+                let backend = backend(events);
+                Core::new(host, backend, stats, style, hub, workers, shared).run(
+                    &events_rx,
+                    &commands_rx,
+                    &hub_rx,
+                );
+            })?
     };
-    Ok(Runtime { commands, events, shared, thread: Some(thread) })
+    Ok(Runtime {
+        commands,
+        events,
+        shared,
+        thread: Some(thread),
+    })
 }

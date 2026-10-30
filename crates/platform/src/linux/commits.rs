@@ -52,12 +52,20 @@ pub(crate) struct Commits {
 impl Commits {
     /// We committed text to the field.
     pub fn committed(&mut self) {
-        self.asking = Some(Asking { at: None, delay: ASK_FIRST, left: ASKS });
+        self.asking = Some(Asking {
+            at: None,
+            delay: ASK_FIRST,
+            left: ASKS,
+        });
     }
 
     /// Waits for the field to show `text`, an insert we just committed.
     pub fn track(&mut self, id: u64, text: String, now: Instant) {
-        self.inserts.push(PendingInsert { id, text, deadline: now + INSERT_CONFIRM });
+        self.inserts.push(PendingInsert {
+            id,
+            text,
+            deadline: now + INSERT_CONFIRM,
+        });
     }
 
     pub fn has_inserts(&self) -> bool {
@@ -89,7 +97,9 @@ impl Commits {
         self.inserts.retain(|i| {
             // Only the tail of a long insert fits in the surrounding text.
             let start = i.text.len().saturating_sub(before.len());
-            let start = (start..=i.text.len()).find(|&s| i.text.is_char_boundary(s)).unwrap_or(i.text.len());
+            let start = (start..=i.text.len())
+                .find(|&s| i.text.is_char_boundary(s))
+                .unwrap_or(i.text.len());
             let landed = before.ends_with(&i.text[start..]);
             if landed {
                 inserted(i.id);

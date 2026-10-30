@@ -92,7 +92,9 @@ pub(crate) const ACTIONS: [Action; 7] = [
 ];
 
 pub(crate) fn action(code: i32) -> Option<Action> {
-    usize::try_from(code).ok().and_then(|i| ACTIONS.get(i).copied())
+    usize::try_from(code)
+        .ok()
+        .and_then(|i| ACTIONS.get(i).copied())
 }
 
 pub(crate) fn card_key(code: i32, value: i32) -> Option<CardKey> {
@@ -125,7 +127,10 @@ pub(crate) fn trigger_slot(trigger: &Trigger) -> Slot {
 
 pub(crate) fn chord_slot(chord: &Chord) -> Slot {
     let m = chord.mods;
-    let mask = i32::from(m.ctrl) | i32::from(m.alt) << 1 | i32::from(m.shift) << 2 | i32::from(m.meta) << 3;
+    let mask = i32::from(m.ctrl)
+        | i32::from(m.alt) << 1
+        | i32::from(m.shift) << 2
+        | i32::from(m.meta) << 3;
     let (kind, value) = match chord.key {
         Key::Char(c) => (1, c as i32),
         Key::Tab => (0, 0),
@@ -166,7 +171,10 @@ mod tests {
     use super::*;
 
     fn boundaries(text: &str) -> Vec<usize> {
-        text.char_indices().map(|(i, _)| i).chain([text.len()]).collect()
+        text.char_indices()
+            .map(|(i, _)| i)
+            .chain([text.len()])
+            .collect()
     }
 
     #[test]

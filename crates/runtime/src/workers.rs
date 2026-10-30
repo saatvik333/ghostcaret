@@ -8,20 +8,37 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use crossbeam_channel::{Receiver, Sender, unbounded};
-use oft_engine::complete::{CancelToken, CompleteError, Completer, Completion, CompletionRequest, GenerateRequest, Generator};
+use oft_engine::complete::{
+    CancelToken, CompleteError, Completer, Completion, CompletionRequest, GenerateRequest,
+    Generator,
+};
 use oft_engine::controller::{GenerateUpdate, Input};
 use oft_engine::io::{Backend, FieldId};
 use oft_engine::stop::Stopper;
 
 /// Results from the workers.
 pub(crate) enum WorkerMsg {
-    Completed { id: u64, result: Result<Completion, CompleteError>, queue: Duration, decode: Duration },
+    Completed {
+        id: u64,
+        result: Result<Completion, CompleteError>,
+        queue: Duration,
+        decode: Duration,
+    },
     Input(Input),
 }
 
 pub(crate) enum Job {
-    Complete { request: CompletionRequest, model: Arc<dyn Completer>, cancel: CancelToken, queued: Instant },
-    Prefill { request: CompletionRequest, model: Arc<dyn Completer>, cancel: CancelToken },
+    Complete {
+        request: CompletionRequest,
+        model: Arc<dyn Completer>,
+        cancel: CancelToken,
+        queued: Instant,
+    },
+    Prefill {
+        request: CompletionRequest,
+        model: Arc<dyn Completer>,
+        cancel: CancelToken,
+    },
 }
 
 pub(crate) struct GenJob {
@@ -47,13 +64,23 @@ impl Workers {
         let (gens, gens_rx) = unbounded();
         let complete = {
             let tx = tx.clone();
-            thread::Builder::new().name("oft-complete".into()).spawn(move || complete(&jobs_rx, &tx))?
+            thread::Builder::new()
+                .name("oft-complete".into())
+                .spawn(move || complete(&jobs_rx, &tx))?
         };
         let generate = {
             let tx = tx.clone();
-            thread::Builder::new().name("oft-generate".into()).spawn(move || generate(&gens_rx, &tx))?
+            thread::Builder::new()
+                .name("oft-generate".into())
+                .spawn(move || generate(&gens_rx, &tx))?
         };
-        Ok(Workers { jobs, gens, threads: [complete, generate], tx, rx })
+        Ok(Workers {
+            jobs,
+            gens,
+            threads: [complete, generate],
+            tx,
+            rx,
+        })
     }
 }
 
@@ -62,7 +89,12 @@ impl Workers {
 fn complete(jobs: &Receiver<Job>, out: &Sender<WorkerMsg>) {
     for job in jobs {
         match job {
-            Job::Complete { request, model, cancel, queued } => {
+            Job::Complete {
+                request,
+                model,
+                cancel,
+                queued,
+            } => {
                 let started = Instant::now();
                 let result = if cancel.is_cancelled() {
                     Err(CompleteError::Cancelled)
@@ -70,13 +102,22 @@ fn complete(jobs: &Receiver<Job>, out: &Sender<WorkerMsg>) {
                     let mut stop = Stopper::new(&request.stop);
                     model.complete(&request, &mut stop, &cancel)
                 };
-                let msg = WorkerMsg::Completed { id: request.id, result, queue: started - queued, decode: started.elapsed() };
+                let msg = WorkerMsg::Completed {
+                    id: request.id,
+                    result,
+                    queue: started - queued,
+                    decode: started.elapsed(),
+                };
                 if out.send(msg).is_err() {
                     return;
                 }
             }
             // A prefill with newer work queued behind it would only delay it.
-            Job::Prefill { request, model, cancel } => {
+            Job::Prefill {
+                request,
+                model,
+                cancel,
+            } => {
                 if !cancel.is_cancelled() && jobs.is_empty() {
                     model.prefill(&request, &cancel);
                 }
@@ -86,7 +127,12 @@ fn complete(jobs: &Receiver<Job>, out: &Sender<WorkerMsg>) {
 }
 
 fn generate(jobs: &Receiver<GenJob>, out: &Sender<WorkerMsg>) {
-    for GenJob { request, model, cancel } in jobs {
+    for GenJob {
+        request,
+        model,
+        cancel,
+    } in jobs
+    {
         let id = request.id;
         let result = if cancel.is_cancelled() {
             Err(CompleteError::Cancelled)
@@ -96,7 +142,10 @@ fn generate(jobs: &Receiver<GenJob>, out: &Sender<WorkerMsg>) {
                 let _ = out.send(WorkerMsg::Input(Input::Generated { id, update }));
             })
         };
-        let done = WorkerMsg::Input(Input::Generated { id, update: GenerateUpdate::Done(result) });
+        let done = WorkerMsg::Input(Input::Generated {
+            id,
+            update: GenerateUpdate::Done(result),
+        });
         if out.send(done).is_err() {
             return;
         }
@@ -104,15 +153,26 @@ fn generate(jobs: &Receiver<GenJob>, out: &Sender<WorkerMsg>) {
 }
 
 /// Starts the conversation reader; [`Backend::conversation`] may block.
-pub(crate) fn conversation_reader(backend: Arc<dyn Backend>, out: Sender<WorkerMsg>) -> io::Result<Sender<FieldId>> {
+pub(crate) fn conversation_reader(
+    backend: Arc<dyn Backend>,
+    out: Sender<WorkerMsg>,
+) -> io::Result<Sender<FieldId>> {
     let (tx, rx) = unbounded::<FieldId>();
-    thread::Builder::new().name("oft-conversation".into()).spawn(move || {
-        for field in rx {
-            let conversation = backend.conversation(field);
-            if out.send(WorkerMsg::Input(Input::Conversation { field, conversation })).is_err() {
-                return;
+    thread::Builder::new()
+        .name("oft-conversation".into())
+        .spawn(move || {
+            for field in rx {
+                let conversation = backend.conversation(field);
+                if out
+                    .send(WorkerMsg::Input(Input::Conversation {
+                        field,
+                        conversation,
+                    }))
+                    .is_err()
+                {
+                    return;
+                }
             }
-        }
-    })?;
+        })?;
     Ok(tx)
 }

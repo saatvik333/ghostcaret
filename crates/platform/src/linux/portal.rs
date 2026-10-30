@@ -30,10 +30,19 @@ impl ColorScheme {
 
     /// Blocks for preference changes, one item per change.
     pub fn changes(&self) -> impl Iterator<Item = bool> + '_ {
-        self.proxy.receive_signal("SettingChanged").into_iter().flatten().filter_map(|msg| {
-            let (ns, key, value): (String, String, OwnedValue) = msg.body().deserialize().ok()?;
-            if ns == NAMESPACE && key == KEY { is_dark(&value) } else { None }
-        })
+        self.proxy
+            .receive_signal("SettingChanged")
+            .into_iter()
+            .flatten()
+            .filter_map(|msg| {
+                let (ns, key, value): (String, String, OwnedValue) =
+                    msg.body().deserialize().ok()?;
+                if ns == NAMESPACE && key == KEY {
+                    is_dark(&value)
+                } else {
+                    None
+                }
+            })
     }
 }
 

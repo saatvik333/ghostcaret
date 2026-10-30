@@ -17,8 +17,8 @@ mod demo {
     use std::time::{Duration, Instant};
 
     use oft_engine::io::{
-        Action, Backend, CardKey, CardView, Event, FieldId, FieldSnapshot, InsertRequest, Overlay, Replace,
-        SuggestionView,
+        Action, Backend, CardKey, CardView, Event, FieldId, FieldSnapshot, InsertRequest, Overlay,
+        Replace, SuggestionView,
     };
     use oft_platform::linux::{self, LinuxBackend};
 
@@ -46,7 +46,11 @@ mod demo {
             }
         }
         let shown = text.find(',').map_or(text.len(), |i| i + 1);
-        let mut step_ends: Vec<usize> = text.match_indices(' ').map(|(i, _)| i).filter(|&i| i > shown).collect();
+        let mut step_ends: Vec<usize> = text
+            .match_indices(' ')
+            .map(|(i, _)| i)
+            .filter(|&i| i > shown)
+            .collect();
         step_ends.push(text.len());
         SuggestionView {
             field,
@@ -92,7 +96,8 @@ mod demo {
             {
                 self.offered_at = Some(at);
                 self.alternative = 0;
-                self.backend.set_overlay(Overlay::Suggestion(view(snap.field, snap.revision, 0)));
+                self.backend
+                    .set_overlay(Overlay::Suggestion(view(snap.field, snap.revision, 0)));
             }
             self.snapshot = Some(snap);
         }
@@ -101,14 +106,22 @@ mod demo {
             let Some(snap) = &self.snapshot else { return };
             let n = ALTERNATIVES.len() as isize;
             self.alternative = (self.alternative as isize + step).rem_euclid(n) as usize;
-            self.backend.set_overlay(Overlay::Suggestion(view(snap.field, snap.revision, self.alternative)));
+            self.backend.set_overlay(Overlay::Suggestion(view(
+                snap.field,
+                snap.revision,
+                self.alternative,
+            )));
         }
 
         fn open_card(&mut self) {
             let Some(snap) = &self.snapshot else { return };
             let card = CardView {
                 field: snap.field,
-                title: if snap.selection.is_empty() { "Reply".into() } else { "Rewrite".into() },
+                title: if snap.selection.is_empty() {
+                    "Reply".into()
+                } else {
+                    "Rewrite".into()
+                },
                 items: DIRECTIONS.iter().map(|s| s.to_string()).collect(),
                 selected: Some(0),
                 input: None,
@@ -125,7 +138,9 @@ mod demo {
         }
 
         fn card_key(&mut self, key: CardKey) {
-            let Some(mut card) = self.card.take() else { return };
+            let Some(mut card) = self.card.take() else {
+                return;
+            };
             let n = card.items.len();
             let select = |card: &mut CardView, i: usize| {
                 card.selected = Some(i);
@@ -146,7 +161,13 @@ mod demo {
                 }
                 CardKey::Pick(i) if (1..=n as u8).contains(&i) => select(&mut card, i as usize - 1),
                 CardKey::Pick(_) => {}
-                CardKey::Tab => card.input = if card.input.is_some() { None } else { Some(String::new()) },
+                CardKey::Tab => {
+                    card.input = if card.input.is_some() {
+                        None
+                    } else {
+                        Some(String::new())
+                    }
+                }
                 CardKey::Char(c) => {
                     if let Some(input) = &mut card.input {
                         input.push(c);
@@ -160,11 +181,23 @@ mod demo {
                 }
                 CardKey::Enter => {
                     let text = card.preview.clone().unwrap_or_default();
-                    let selected = self.snapshot.as_ref().is_some_and(|s| !s.selection.is_empty());
-                    let replace = if selected { Replace::Selection } else { Replace::Nothing };
+                    let selected = self
+                        .snapshot
+                        .as_ref()
+                        .is_some_and(|s| !s.selection.is_empty());
+                    let replace = if selected {
+                        Replace::Selection
+                    } else {
+                        Replace::Nothing
+                    };
                     self.next_insert += 1;
                     self.backend.set_overlay(Overlay::Hidden);
-                    self.backend.insert(InsertRequest { id: self.next_insert, field: card.field, text, replace });
+                    self.backend.insert(InsertRequest {
+                        id: self.next_insert,
+                        field: card.field,
+                        text,
+                        replace,
+                    });
                     return;
                 }
             }
@@ -189,7 +222,10 @@ mod demo {
     }
 
     pub fn main() {
-        let seconds: u64 = std::env::args().nth(1).and_then(|a| a.parse().ok()).unwrap_or(60);
+        let seconds: u64 = std::env::args()
+            .nth(1)
+            .and_then(|a| a.parse().ok())
+            .unwrap_or(60);
         let (tx, rx) = crossbeam_channel::unbounded();
         let backend = match LinuxBackend::start(tx) {
             Ok(b) => b,
@@ -199,7 +235,14 @@ mod demo {
             }
         };
         println!("running for {seconds} s; type `{TRIGGER}` in a text field");
-        let mut demo = Demo { backend, snapshot: None, offered_at: None, alternative: 0, card: None, next_insert: 0 };
+        let mut demo = Demo {
+            backend,
+            snapshot: None,
+            offered_at: None,
+            alternative: 0,
+            card: None,
+            next_insert: 0,
+        };
         let end = Instant::now() + Duration::from_secs(seconds);
         while let Ok(event) = rx.recv_deadline(end) {
             match event {

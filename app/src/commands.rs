@@ -27,17 +27,25 @@ pub struct CmdError {
 
 impl CmdError {
     fn new(message: impl Into<String>) -> CmdError {
-        CmdError { message: message.into(), key: None }
+        CmdError {
+            message: message.into(),
+            key: None,
+        }
     }
     fn at(key: impl Into<String>, message: impl Into<String>) -> CmdError {
-        CmdError { message: message.into(), key: Some(key.into()) }
+        CmdError {
+            message: message.into(),
+            key: Some(key.into()),
+        }
     }
 }
 
 type Result<T, E = CmdError> = std::result::Result<T, E>;
 
 async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T> + Send + 'static) -> Result<T> {
-    tauri::async_runtime::spawn_blocking(f).await.map_err(|e| CmdError::new(e.to_string()))?
+    tauri::async_runtime::spawn_blocking(f)
+        .await
+        .map_err(|e| CmdError::new(e.to_string()))?
 }
 
 #[derive(Debug, Serialize)]
@@ -61,7 +69,12 @@ pub async fn overview(state: State<'_, Arc<AppState>>) -> Result<Overview> {
     let state = state.inner().clone();
     blocking(move || {
         let settings = state.settings();
-        let keys = settings.providers.iter().filter(|p| keychain::has(&p.id)).map(|p| p.id.clone()).collect();
+        let keys = settings
+            .providers
+            .iter()
+            .filter(|p| keychain::has(&p.id))
+            .map(|p| p.id.clone())
+            .collect();
         Ok(Overview {
             version: env!("CARGO_PKG_VERSION"),
             os: std::env::consts::OS,
@@ -86,10 +99,19 @@ fn settings_error(err: SettingsError) -> CmdError {
 }
 
 #[tauri::command]
-pub async fn save_settings(app: AppHandle, state: State<'_, Arc<AppState>>, settings: Settings) -> Result<()> {
+pub async fn save_settings(
+    app: AppHandle,
+    state: State<'_, Arc<AppState>>,
+    settings: Settings,
+) -> Result<()> {
     if let Some(problem) = keys::check(&settings.keys).into_iter().next() {
-        let slot = serde_json::to_value(problem.slot).ok().and_then(|v| v.as_str().map(str::to_owned));
-        return Err(CmdError::at(format!("keys.{}", slot.unwrap_or_default()), problem.message));
+        let slot = serde_json::to_value(problem.slot)
+            .ok()
+            .and_then(|v| v.as_str().map(str::to_owned));
+        return Err(CmdError::at(
+            format!("keys.{}", slot.unwrap_or_default()),
+            problem.message,
+        ));
     }
     let state = state.inner().clone();
     blocking(move || {
@@ -124,7 +146,11 @@ fn checked_key(key: &str) -> Result<&str> {
 
 /// Stores a key for a configured provider. The UI clears its copy afterwards.
 #[tauri::command]
-pub async fn set_api_key(state: State<'_, Arc<AppState>>, provider: String, key: String) -> Result<()> {
+pub async fn set_api_key(
+    state: State<'_, Arc<AppState>>,
+    provider: String,
+    key: String,
+) -> Result<()> {
     let state = state.inner().clone();
     blocking(move || {
         let key = checked_key(&key)?;
@@ -139,7 +165,11 @@ pub async fn set_api_key(state: State<'_, Arc<AppState>>, provider: String, key:
 
 /// Removes a provider, its key, and any model choice that used it.
 #[tauri::command]
-pub async fn remove_provider(app: AppHandle, state: State<'_, Arc<AppState>>, provider: String) -> Result<Settings> {
+pub async fn remove_provider(
+    app: AppHandle,
+    state: State<'_, Arc<AppState>>,
+    provider: String,
+) -> Result<Settings> {
     let state = state.inner().clone();
     blocking(move || {
         let mut settings = state.settings();
@@ -150,7 +180,10 @@ pub async fn remove_provider(app: AppHandle, state: State<'_, Arc<AppState>>, pr
             }
         }
         keychain::delete(&provider).map_err(|e| CmdError::new(e.to_string()))?;
-        state.store.save(&settings).map_err(|e| CmdError::new(e.to_string()))?;
+        state
+            .store
+            .save(&settings)
+            .map_err(|e| CmdError::new(e.to_string()))?;
         state.replace_settings(settings.clone());
         #[cfg(desktop)]
         state.runtime.send(oft_runtime::Command::SettingsChanged);
@@ -167,7 +200,10 @@ fn validate_provider(config: &ProviderConfig) -> Result<()> {
     if let oft_engine::settings::ProviderKind::OpenAiCompatible { base_url } = &config.kind {
         let ok = base_url.starts_with("https://") || base_url.starts_with("http://");
         if !ok {
-            return Err(CmdError::at("base_url", "Enter an address that starts with https:// or http://."));
+            return Err(CmdError::at(
+                "base_url",
+                "Enter an address that starts with https:// or http://.",
+            ));
         }
     }
     Ok(())
@@ -181,18 +217,31 @@ fn key_for(config: &ProviderConfig, pasted: Option<String>) -> Result<Option<Str
     }
 }
 
-fn build_provider(state: &AppState, config: &ProviderConfig, key: Option<String>) -> Result<Arc<oft_cloud::Provider>> {
+fn build_provider(
+    state: &AppState,
+    config: &ProviderConfig,
+    key: Option<String>,
+) -> Result<Arc<oft_cloud::Provider>> {
     validate_provider(config)?;
     let key = key_for(config, key)?;
-    oft_cloud::provider(config, key, state.sent_log.clone()).map_err(|e| CmdError::at("key", e.to_string()))
+    oft_cloud::provider(config, key, state.sent_log.clone())
+        .map_err(|e| CmdError::at("key", e.to_string()))
 }
 
 /// Sends one small request to check the address, key and model.
 #[tauri::command]
-pub async fn test_provider(state: State<'_, Arc<AppState>>, config: ProviderConfig, key: Option<String>) -> Result<()> {
+pub async fn test_provider(
+    state: State<'_, Arc<AppState>>,
+    config: ProviderConfig,
+    key: Option<String>,
+) -> Result<()> {
     let state = state.inner().clone();
-    blocking(move || build_provider(&state, &config, key)?.test_connection().map_err(|e| CmdError::at("test", e.to_string())))
-        .await
+    blocking(move || {
+        build_provider(&state, &config, key)?
+            .test_connection()
+            .map_err(|e| CmdError::at("test", e.to_string()))
+    })
+    .await
 }
 
 #[tauri::command]
@@ -202,8 +251,12 @@ pub async fn provider_models(
     key: Option<String>,
 ) -> Result<Vec<ModelInfo>> {
     let state = state.inner().clone();
-    blocking(move || build_provider(&state, &config, key)?.list_models().map_err(|e| CmdError::at("model", e.to_string())))
-        .await
+    blocking(move || {
+        build_provider(&state, &config, key)?
+            .list_models()
+            .map_err(|e| CmdError::at("model", e.to_string()))
+    })
+    .await
 }
 
 #[tauri::command]
@@ -220,15 +273,23 @@ pub fn clear_sent_log(state: State<'_, Arc<AppState>>) {
 pub async fn usage(state: State<'_, Arc<AppState>>, days: u32) -> Result<Usage> {
     let state = state.inner().clone();
     blocking(move || {
-        let stats = state.stats.as_ref().ok_or_else(|| CmdError::new("Usage stats are unavailable."))?;
-        stats.usage(days.clamp(1, 366)).map_err(|e| CmdError::new(e.to_string()))
+        let stats = state
+            .stats
+            .as_ref()
+            .ok_or_else(|| CmdError::new("Usage stats are unavailable."))?;
+        stats
+            .usage(days.clamp(1, 366))
+            .map_err(|e| CmdError::new(e.to_string()))
     })
     .await
 }
 
 #[tauri::command]
 pub fn clear_usage(state: State<'_, Arc<AppState>>) -> Result<()> {
-    let stats = state.stats.as_ref().ok_or_else(|| CmdError::new("Usage stats are unavailable."))?;
+    let stats = state
+        .stats
+        .as_ref()
+        .ok_or_else(|| CmdError::new("Usage stats are unavailable."))?;
     stats.clear();
     Ok(())
 }
@@ -244,7 +305,9 @@ pub async fn seen_apps(state: State<'_, Arc<AppState>>) -> Result<Vec<SeenApp>> 
 }
 
 #[tauri::command]
-pub async fn style_samples(state: State<'_, Arc<AppState>>) -> Result<Vec<oft_store::style::Sample>> {
+pub async fn style_samples(
+    state: State<'_, Arc<AppState>>,
+) -> Result<Vec<oft_store::style::Sample>> {
     let state = state.inner().clone();
     blocking(move || match &state.style {
         Some(style) => style.all().map_err(|e| CmdError::new(e.to_string())),
@@ -255,8 +318,15 @@ pub async fn style_samples(state: State<'_, Arc<AppState>>) -> Result<Vec<oft_st
 
 /// Deletes one remembered message (`id`), one app's (`app`), or all.
 #[tauri::command]
-pub fn delete_style(state: State<'_, Arc<AppState>>, id: Option<i64>, app: Option<String>) -> Result<()> {
-    let style = state.style.as_ref().ok_or_else(|| CmdError::new("Style memory is unavailable."))?;
+pub fn delete_style(
+    state: State<'_, Arc<AppState>>,
+    id: Option<i64>,
+    app: Option<String>,
+) -> Result<()> {
+    let style = state
+        .style
+        .as_ref()
+        .ok_or_else(|| CmdError::new("Style memory is unavailable."))?;
     style.delete(id, app);
     Ok(())
 }
@@ -264,13 +334,24 @@ pub fn delete_style(state: State<'_, Arc<AppState>>, id: Option<i64>, app: Optio
 #[tauri::command]
 pub async fn set_setup_step(state: State<'_, Arc<AppState>>, step: Step) -> Result<()> {
     let state = state.inner().clone();
-    blocking(move || state.set_setup_step(step).map_err(|e| CmdError::new(format!("Could not save progress: {e}")))).await
+    blocking(move || {
+        state
+            .set_setup_step(step)
+            .map_err(|e| CmdError::new(format!("Could not save progress: {e}")))
+    })
+    .await
 }
 
 #[cfg(desktop)]
 #[tauri::command]
-pub fn pause(state: State<'_, Arc<AppState>>, scope: oft_runtime::pause::Scope, length: oft_runtime::pause::PauseFor) {
-    state.runtime.send(oft_runtime::Command::Pause(scope, length));
+pub fn pause(
+    state: State<'_, Arc<AppState>>,
+    scope: oft_runtime::pause::Scope,
+    length: oft_runtime::pause::PauseFor,
+) {
+    state
+        .runtime
+        .send(oft_runtime::Command::Pause(scope, length));
 }
 
 #[cfg(desktop)]
@@ -351,7 +432,11 @@ pub mod local_models {
     pub fn recommended(ram: Option<u64>) -> Option<&'static ModelEntry> {
         let entries = Manifest::builtin().entries();
         let ram = ram.unwrap_or(0);
-        let tier = if ram >= 16 * GB { Tier::Standard } else { Tier::Small };
+        let tier = if ram >= 16 * GB {
+            Tier::Standard
+        } else {
+            Tier::Small
+        };
         entries
             .iter()
             .find(|e| e.tier == tier && u64::from(e.min_ram_gb) * GB <= ram)
@@ -367,7 +452,9 @@ pub mod local_models {
     }
 
     fn entry(id: &str) -> Result<&'static ModelEntry> {
-        Manifest::builtin().get(id).ok_or_else(|| CmdError::new("Unknown model."))
+        Manifest::builtin()
+            .get(id)
+            .ok_or_else(|| CmdError::new("Unknown model."))
     }
 
     #[tauri::command]
@@ -397,8 +484,18 @@ pub mod local_models {
                     in_use: uses(e.id),
                 })
                 .collect();
-            let downloading = state.download.lock().unwrap_or_else(|e| e.into_inner()).as_ref().map(|(id, _)| id.clone());
-            Ok(ModelsView { models, ram_bytes: ram, downloading, dir: state.models.dir().display().to_string() })
+            let downloading = state
+                .download
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .as_ref()
+                .map(|(id, _)| id.clone());
+            Ok(ModelsView {
+                models,
+                ram_bytes: ram,
+                downloading,
+                dir: state.models.dir().display().to_string(),
+            })
         })
         .await
     }
@@ -406,13 +503,19 @@ pub mod local_models {
     /// Starts a resumable, verified download. Progress arrives as
     /// `model-progress` events and the end as one `model-done` event.
     #[tauri::command]
-    pub fn download_model(app: AppHandle, state: State<'_, Arc<AppState>>, id: String) -> Result<()> {
+    pub fn download_model(
+        app: AppHandle,
+        state: State<'_, Arc<AppState>>,
+        id: String,
+    ) -> Result<()> {
         let entry = entry(&id)?;
         let cancel = CancelToken::new();
         {
             let mut slot = state.download.lock().unwrap_or_else(|e| e.into_inner());
             if let Some((other, _)) = slot.as_ref() {
-                return Err(CmdError::new(format!("Another download ({other}) is running.")));
+                return Err(CmdError::new(format!(
+                    "Another download ({other}) is running."
+                )));
             }
             *slot = Some((id, cancel.clone()));
         }
@@ -423,9 +526,18 @@ pub mod local_models {
                 let mut last = 0u64;
                 let mut on_progress = |p: Progress| {
                     // About 200 updates per download, whatever its size.
-                    if p.downloaded == p.total || p.downloaded.saturating_sub(last) >= p.total / 200 {
+                    if p.downloaded == p.total || p.downloaded.saturating_sub(last) >= p.total / 200
+                    {
                         last = p.downloaded;
-                        emit(&app, "model-progress", DownloadProgress { id: entry.id, downloaded: p.downloaded, total: p.total });
+                        emit(
+                            &app,
+                            "model-progress",
+                            DownloadProgress {
+                                id: entry.id,
+                                downloaded: p.downloaded,
+                                total: p.total,
+                            },
+                        );
                         #[cfg(desktop)]
                         if p.total > 0 {
                             let f = p.downloaded as f32 / p.total as f32;
@@ -439,7 +551,15 @@ pub mod local_models {
                 state.runtime.send(oft_runtime::Command::Download(None));
                 let cancelled = cancel.is_cancelled();
                 let error = result.err().filter(|_| !cancelled).map(|e| e.to_string());
-                emit(&app, "model-done", DownloadDone { id: entry.id, error, cancelled });
+                emit(
+                    &app,
+                    "model-done",
+                    DownloadDone {
+                        id: entry.id,
+                        error,
+                        cancelled,
+                    },
+                );
             })
             .map_err(|e| CmdError::new(format!("Could not start the download: {e}")))?;
         Ok(())
@@ -448,14 +568,23 @@ pub mod local_models {
     /// Stops the running download; the partial file is kept for resuming.
     #[tauri::command]
     pub fn cancel_download(state: State<'_, Arc<AppState>>) {
-        if let Some((_, cancel)) = state.download.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
+        if let Some((_, cancel)) = state
+            .download
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+        {
             cancel.cancel();
         }
     }
 
     /// Deletes a downloaded model. Settings that used it fall back to no model.
     #[tauri::command]
-    pub async fn delete_model(app: AppHandle, state: State<'_, Arc<AppState>>, id: String) -> Result<()> {
+    pub async fn delete_model(
+        app: AppHandle,
+        state: State<'_, Arc<AppState>>,
+        id: String,
+    ) -> Result<()> {
         let entry = entry(&id)?;
         let state = state.inner().clone();
         blocking(move || {
@@ -468,12 +597,18 @@ pub mod local_models {
                 }
             }
             if changed {
-                state.store.save(&settings).map_err(|e| CmdError::new(e.to_string()))?;
+                state
+                    .store
+                    .save(&settings)
+                    .map_err(|e| CmdError::new(e.to_string()))?;
                 state.replace_settings(settings);
                 #[cfg(desktop)]
                 state.runtime.send(oft_runtime::Command::SettingsChanged);
             }
-            state.models.delete(entry).map_err(|e| CmdError::new(format!("Could not delete the model: {e}")))?;
+            state
+                .models
+                .delete(entry)
+                .map_err(|e| CmdError::new(format!("Could not delete the model: {e}")))?;
             #[cfg(desktop)]
             state.runtime.send(oft_runtime::Command::ModelsChanged);
             crate::refresh_tray(&app, &state);
@@ -487,13 +622,17 @@ pub mod local_models {
     pub async fn check_model_file(path: String) -> Result<u64> {
         blocking(move || {
             use std::io::Read;
-            let mut file = std::fs::File::open(&path).map_err(|e| CmdError::at("path", format!("Cannot open the file: {}", e.kind())))?;
+            let mut file = std::fs::File::open(&path)
+                .map_err(|e| CmdError::at("path", format!("Cannot open the file: {}", e.kind())))?;
             let mut magic = [0u8; 4];
-            file.read_exact(&mut magic).map_err(|_| CmdError::at("path", "The file is too short to be a model."))?;
+            file.read_exact(&mut magic)
+                .map_err(|_| CmdError::at("path", "The file is too short to be a model."))?;
             if &magic != b"GGUF" {
                 return Err(CmdError::at("path", "This is not a GGUF model file."));
             }
-            file.metadata().map(|m| m.len()).map_err(|e| CmdError::at("path", e.to_string()))
+            file.metadata()
+                .map(|m| m.len())
+                .map_err(|e| CmdError::at("path", e.to_string()))
         })
         .await
     }

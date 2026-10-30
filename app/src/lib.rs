@@ -95,7 +95,10 @@ pub fn open_main(app: &AppHandle) {
     }
     let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()));
     #[cfg(desktop)]
-    let builder = builder.title("Ghostcaret").inner_size(920.0, 680.0).min_inner_size(600.0, 460.0);
+    let builder = builder
+        .title("Ghostcaret")
+        .inner_size(920.0, 680.0)
+        .min_inner_size(600.0, 460.0);
     if let Err(e) = builder.build() {
         log::error!("could not open the settings window: {e}");
     }
@@ -126,8 +129,12 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     if let Some(e) = &loaded.error {
         log::warn!("{e}");
     }
-    let stats = Stats::open(paths::data_dir()).map_err(|e| log::warn!("usage stats unavailable: {e}")).ok();
-    let style = StyleMemory::open(paths::data_dir()).map_err(|e| log::warn!("style memory unavailable: {e}")).ok();
+    let stats = Stats::open(paths::data_dir())
+        .map_err(|e| log::warn!("usage stats unavailable: {e}"))
+        .ok();
+    let style = StyleMemory::open(paths::data_dir())
+        .map_err(|e| log::warn!("style memory unavailable: {e}"))
+        .ok();
     let sent_log = SentLog::default();
     let setup = SetupStore::new(paths::config_dir());
     let step = setup.load();
@@ -135,7 +142,10 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     #[cfg(desktop)]
     let runtime = {
-        let host = Arc::new(host::DesktopHost::new(app.handle().clone(), settings.clone()));
+        let host = Arc::new(host::DesktopHost::new(
+            app.handle().clone(),
+            settings.clone(),
+        ));
         let config = oft_runtime::Config {
             stats: stats.clone(),
             style: style.clone(),
@@ -145,7 +155,9 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             #[cfg(feature = "local")]
             load_options: oft_local::LoadOptions::default(),
         };
-        let runtime = oft_runtime::start(host, config, |events| oft_platform::start(events).map_err(|e| e.to_string()))?;
+        let runtime = oft_runtime::start(host, config, |events| {
+            oft_platform::start(events).map_err(|e| e.to_string())
+        })?;
         let commands = runtime.commands();
         memory::watch_pressure(move || {
             let _ = commands.send(oft_runtime::Command::MemoryPressure);
@@ -188,7 +200,9 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 pub fn run() {
     let builder = tauri::Builder::default();
     #[cfg(desktop)]
-    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| open_main(app)));
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        open_main(app)
+    }));
     let app = builder
         .setup(setup)
         .invoke_handler(tauri::generate_handler![
@@ -229,7 +243,9 @@ pub fn run() {
     app.run(|app, event| match event {
         // Closing the settings window leaves the app running in the tray.
         #[cfg(desktop)]
-        RunEvent::ExitRequested { api, code: None, .. } => api.prevent_exit(),
+        RunEvent::ExitRequested {
+            api, code: None, ..
+        } => api.prevent_exit(),
         #[cfg(desktop)]
         RunEvent::Exit => {
             if let Some(state) = app.try_state::<Arc<AppState>>() {

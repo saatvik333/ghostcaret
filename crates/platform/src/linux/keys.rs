@@ -52,7 +52,10 @@ fn named(sym: u32) -> Option<Key> {
 /// cannot know.
 fn composes(sym: u32) -> bool {
     use xkb::keysyms as k;
-    matches!(sym, k::KEY_dead_grave..=k::KEY_dead_greek | k::KEY_Multi_key)
+    matches!(
+        sym,
+        k::KEY_dead_grave..=k::KEY_dead_greek | k::KEY_Multi_key
+    )
 }
 
 /// Translates a key into what the gate needs to know.
@@ -60,16 +63,35 @@ pub(crate) fn key_in(code: u32, down: bool, time_ms: u32, sym: u32, ch: u32, mod
     let modifier = modifier(sym);
     let shortcut = mods.ctrl || mods.alt || mods.meta;
     let (key, text) = if let Some(key) = named(sym) {
-        let text = if key == Key::Space && !shortcut { Typed::Char(' ') } else { Typed::None };
+        let text = if key == Key::Space && !shortcut {
+            Typed::Char(' ')
+        } else {
+            Typed::None
+        };
         (Some(key), text)
     } else if let Some(c) = char::from_u32(ch).filter(|c| !c.is_control()) {
-        (Some(Key::Char(c)), if shortcut { Typed::None } else { Typed::Char(c) })
+        (
+            Some(Key::Char(c)),
+            if shortcut {
+                Typed::None
+            } else {
+                Typed::Char(c)
+            },
+        )
     } else if composes(sym) && !shortcut {
         (None, Typed::Unknown)
     } else {
         (None, Typed::None)
     };
-    KeyIn { code, down, time_ms, key, text, modifier, mods }
+    KeyIn {
+        code,
+        down,
+        time_ms,
+        key,
+        text,
+        modifier,
+        mods,
+    }
 }
 
 /// The grab's keymap and the modifier state the compositor reports.
@@ -90,7 +112,12 @@ impl Keyboard {
         // SAFETY: the compositor hands over a sealed or private keymap file of
         // `size` bytes; a private read-only copy is mapped, so later writes by
         // the compositor cannot change what xkb reads.
-        let map = unsafe { memmap2::MmapOptions::new().len(size as usize).map_copy_read_only(&file) }.ok()?;
+        let map = unsafe {
+            memmap2::MmapOptions::new()
+                .len(size as usize)
+                .map_copy_read_only(&file)
+        }
+        .ok()?;
         // The text is NUL-terminated.
         let source = map.split(|&b| b == 0).next().unwrap_or(&map);
         if let Some(previous) = previous.filter(|p| p.source == source) {
@@ -98,8 +125,12 @@ impl Keyboard {
         }
         let context = xkb::Context::new(xkb::CONTEXT_NO_FLAGS);
         let text = std::str::from_utf8(source).ok()?;
-        let keymap =
-            xkb::Keymap::new_from_string(&context, text.to_owned(), xkb::KEYMAP_FORMAT_TEXT_V1, xkb::COMPILE_NO_FLAGS)?;
+        let keymap = xkb::Keymap::new_from_string(
+            &context,
+            text.to_owned(),
+            xkb::KEYMAP_FORMAT_TEXT_V1,
+            xkb::COMPILE_NO_FLAGS,
+        )?;
         let index = |name| keymap.mod_get_index(name);
         Some(Keyboard {
             ctrl: index(xkb::MOD_NAME_CTRL),
@@ -112,13 +143,19 @@ impl Keyboard {
     }
 
     pub fn update_mask(&mut self, depressed: u32, latched: u32, locked: u32, group: u32) {
-        self.state.update_mask(depressed, latched, locked, 0, 0, group);
+        self.state
+            .update_mask(depressed, latched, locked, 0, 0, group);
     }
 
     /// The modifiers in effect.
     pub fn mods(&self) -> Mods {
         let on = |i| self.state.mod_index_is_active(i, xkb::STATE_MODS_EFFECTIVE);
-        Mods { ctrl: on(self.ctrl), alt: on(self.alt), shift: on(self.shift), meta: on(self.meta) }
+        Mods {
+            ctrl: on(self.ctrl),
+            alt: on(self.alt),
+            shift: on(self.shift),
+            meta: on(self.meta),
+        }
     }
 
     /// The keysym of an evdev key at the current level, and the character
@@ -134,7 +171,12 @@ mod tests {
     use super::*;
     use xkb::keysyms as k;
 
-    const NONE: Mods = Mods { ctrl: false, alt: false, shift: false, meta: false };
+    const NONE: Mods = Mods {
+        ctrl: false,
+        alt: false,
+        shift: false,
+        meta: false,
+    };
     const CTRL: Mods = Mods { ctrl: true, ..NONE };
 
     #[test]
@@ -150,7 +192,10 @@ mod tests {
         let tab = key_in(15, true, 0, k::KEY_Tab, '\t' as u32, NONE);
         assert_eq!((tab.key, tab.text), (Some(Key::Tab), Typed::None));
         let space = key_in(57, true, 0, k::KEY_space, ' ' as u32, NONE);
-        assert_eq!((space.key, space.text), (Some(Key::Space), Typed::Char(' ')));
+        assert_eq!(
+            (space.key, space.text),
+            (Some(Key::Space), Typed::Char(' '))
+        );
         let f5 = key_in(63, true, 0, k::KEY_F5, 0, NONE);
         assert_eq!(f5.key, Some(Key::F(5)));
     }
@@ -160,7 +205,10 @@ mod tests {
         let dead = key_in(40, true, 0, k::KEY_dead_acute, 0, NONE);
         assert_eq!((dead.key, dead.text), (None, Typed::Unknown));
         let ralt = key_in(100, true, 0, k::KEY_Alt_R, 0, NONE);
-        assert_eq!((ralt.modifier, ralt.key, ralt.text), (Some(Modifier::RightAlt), None, Typed::None));
+        assert_eq!(
+            (ralt.modifier, ralt.key, ralt.text),
+            (Some(Modifier::RightAlt), None, Typed::None)
+        );
     }
 
     /// Regression: with `altwin:swap_alt_win` the physical Alt key sends

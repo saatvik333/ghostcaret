@@ -34,7 +34,12 @@ pub struct Theme {
 
 impl Default for Theme {
     fn default() -> Self {
-        Theme { scale: 1.0, font_px: 15.0, style: GhostStyle::Faint, dark: false }
+        Theme {
+            scale: 1.0,
+            font_px: 15.0,
+            style: GhostStyle::Faint,
+            dark: false,
+        }
     }
 }
 
@@ -63,7 +68,9 @@ pub struct Renderer {
 
 impl fmt::Debug for Renderer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Renderer").field("key_hint", &self.key_hint).finish_non_exhaustive()
+        f.debug_struct("Renderer")
+            .field("key_hint", &self.key_hint)
+            .finish_non_exhaustive()
     }
 }
 
@@ -153,9 +160,27 @@ fn palette(theme: &Theme) -> Palette {
 
 /// A draw operation, laid out before the image size is known.
 enum Op {
-    Panel { rect: Rect, radius: f32, fill: Color, border: f32, stroke: Color },
-    Text { shaped: usize, line: Line, x: f32, baseline: f32, color: Color },
-    Fade { x0: i32, x1: i32, y0: i32, y1: i32, under: Color },
+    Panel {
+        rect: Rect,
+        radius: f32,
+        fill: Color,
+        border: f32,
+        stroke: Color,
+    },
+    Text {
+        shaped: usize,
+        line: Line,
+        x: f32,
+        baseline: f32,
+        color: Color,
+    },
+    Fade {
+        x0: i32,
+        x1: i32,
+        y0: i32,
+        y1: i32,
+        under: Color,
+    },
 }
 
 /// Collects shaped texts and operations for one image.
@@ -172,18 +197,47 @@ impl Scene {
     }
 
     fn text(&mut self, shaped: usize, line: Line, x: f32, baseline: f32, color: Color) {
-        self.ops.push(Op::Text { shaped, line, x, baseline, color });
+        self.ops.push(Op::Text {
+            shaped,
+            line,
+            x,
+            baseline,
+            color,
+        });
     }
 
     fn paint(self, text: &mut Text, width: f32, height: f32) -> Image {
         let mut img = Image::new(width.ceil() as u32, height.ceil() as u32);
         for op in self.ops {
             match op {
-                Op::Panel { rect, radius, fill, border, stroke } => img.rounded_rect(rect, radius, fill, border, stroke),
-                Op::Text { shaped, line, x, baseline, color } => {
-                    text.draw(&mut img, &self.shaped[shaped], &line, x, baseline, color.premultiplied())
-                }
-                Op::Fade { x0, x1, y0, y1, under } => img.fade_rows(x0, x1, y0, y1, under.premultiplied()),
+                Op::Panel {
+                    rect,
+                    radius,
+                    fill,
+                    border,
+                    stroke,
+                } => img.rounded_rect(rect, radius, fill, border, stroke),
+                Op::Text {
+                    shaped,
+                    line,
+                    x,
+                    baseline,
+                    color,
+                } => text.draw(
+                    &mut img,
+                    &self.shaped[shaped],
+                    &line,
+                    x,
+                    baseline,
+                    color.premultiplied(),
+                ),
+                Op::Fade {
+                    x0,
+                    x1,
+                    y0,
+                    y1,
+                    under,
+                } => img.fade_rows(x0, x1, y0, y1, under.premultiplied()),
             }
         }
         img
@@ -199,13 +253,27 @@ struct Metrics {
 
 impl Metrics {
     fn new(theme: &Theme) -> Metrics {
-        let scale = if theme.scale.is_finite() && theme.scale > 0.0 { theme.scale } else { 1.0 };
-        let font = if theme.font_px.is_finite() && theme.font_px > 0.0 { theme.font_px } else { 15.0 };
+        let scale = if theme.scale.is_finite() && theme.scale > 0.0 {
+            theme.scale
+        } else {
+            1.0
+        };
+        let font = if theme.font_px.is_finite() && theme.font_px > 0.0 {
+            theme.font_px
+        } else {
+            15.0
+        };
         let em = (font * scale).round().max(1.0);
         Metrics {
             em,
-            body: TextStyle { size: em, bold: false },
-            small: TextStyle { size: (em * 0.78).round().max(1.0), bold: false },
+            body: TextStyle {
+                size: em,
+                bold: false,
+            },
+            small: TextStyle {
+                size: (em * 0.78).round().max(1.0),
+                bold: false,
+            },
         }
     }
 
@@ -222,7 +290,10 @@ impl Metrics {
 impl Renderer {
     /// Creates a renderer; fonts load on the first draw.
     pub fn new() -> Renderer {
-        Renderer { text: Text::default(), key_hint: key_hint(&Bindings::default()) }
+        Renderer {
+            text: Text::default(),
+            key_hint: key_hint(&Bindings::default()),
+        }
     }
 
     /// Updates the key hint shown on suggestions to the current Take Word
@@ -274,9 +345,13 @@ impl Renderer {
         let shaped = scene.add(shaped);
 
         let hint = (!self.key_hint.is_empty()).then(|| self.text.shape(&self.key_hint, m.small));
-        let alt = view.alternative.map(|(i, n)| self.text.shape(&format!("{i}/{n}"), m.small));
+        let alt = view
+            .alternative
+            .map(|(i, n)| self.text.shape(&format!("{i}/{n}"), m.small));
         let chip_pad = m.px(0.35);
-        let chip_w = hint.as_ref().map_or(0.0, |h| h.width().ceil() + 2.0 * chip_pad);
+        let chip_w = hint
+            .as_ref()
+            .map_or(0.0, |h| h.width().ceil() + 2.0 * chip_pad);
         let alt_w = alt.as_ref().map_or(0.0, |a| a.width().ceil());
 
         let mut width = pad_x + text_w.ceil();
@@ -292,7 +367,12 @@ impl Renderer {
         let height = 2.0 * pad_y + body.height * lines.len() as f32;
 
         scene.ops.push(Op::Panel {
-            rect: Rect { x: 0.0, y: 0.0, w: width, h: height },
+            rect: Rect {
+                x: 0.0,
+                y: 0.0,
+                w: width,
+                h: height,
+            },
             radius: m.em * 0.42,
             fill: pal.bg,
             border: pal.border_px,
@@ -318,7 +398,12 @@ impl Renderer {
         if let Some(hint) = hint {
             let chip_h = small.height + m.px(0.16);
             scene.ops.push(Op::Panel {
-                rect: Rect { x: chip_x, y: (mid - chip_h / 2.0).round(), w: chip_w, h: chip_h },
+                rect: Rect {
+                    x: chip_x,
+                    y: (mid - chip_h / 2.0).round(),
+                    w: chip_w,
+                    h: chip_h,
+                },
                 radius: m.em * 0.22,
                 fill: Color::rgb(0).with_alpha(0),
                 border: pal.border_px,
@@ -347,20 +432,37 @@ impl Renderer {
         let pad = m.px(0.9);
         let gap = m.px(0.55);
         let (row_x, row_y) = (m.px(0.45), m.px(0.28));
-        let title_style = TextStyle { bold: true, ..m.body };
+        let title_style = TextStyle {
+            bold: true,
+            ..m.body
+        };
         let body = self.text.metrics(m.body);
         let small = self.text.metrics(m.small);
         let title = self.text.metrics(title_style);
 
         let mut scene = Scene::default();
-        let title_text = (!card.title.is_empty()).then(|| scene.add(self.text.shape(&card.title, title_style)));
+        let title_text =
+            (!card.title.is_empty()).then(|| scene.add(self.text.shape(&card.title, title_style)));
         let numbers: Vec<usize> = (1..=card.items.len())
             .map(|n| scene.add(self.text.shape(&n.to_string(), m.small)))
             .collect();
-        let items: Vec<usize> = card.items.iter().map(|t| scene.add(self.text.shape(t, m.body))).collect();
-        let input = card.input.as_deref().map(|t| scene.add(self.text.shape(t, m.body)));
-        let preview = card.preview.as_deref().map(|t| scene.add(self.text.shape(t, m.body)));
-        let status = card.status.as_deref().map(|t| scene.add(self.text.shape(t, m.small)));
+        let items: Vec<usize> = card
+            .items
+            .iter()
+            .map(|t| scene.add(self.text.shape(t, m.body)))
+            .collect();
+        let input = card
+            .input
+            .as_deref()
+            .map(|t| scene.add(self.text.shape(t, m.body)));
+        let preview = card
+            .preview
+            .as_deref()
+            .map(|t| scene.add(self.text.shape(t, m.body)));
+        let status = card
+            .status
+            .as_deref()
+            .map(|t| scene.add(self.text.shape(t, m.small)));
         let hint = (!card.hint.is_empty()).then(|| scene.add(self.text.shape(&card.hint, m.small)));
         let ellipsis = scene.add(self.text.shape(ELLIPSIS, m.body));
 
@@ -371,7 +473,12 @@ impl Renderer {
             .ceil()
             + m.px(0.6);
         let caret_w = m.scale_px(theme, 1.5);
-        let natural_line = |s: &Shaped| s.wrap(f32::INFINITY).iter().map(|l| l.width).fold(0.0, f32::max);
+        let natural_line = |s: &Shaped| {
+            s.wrap(f32::INFINITY)
+                .iter()
+                .map(|l| l.width)
+                .fold(0.0, f32::max)
+        };
         let mut natural = m.em * 18.0;
         for (&text, extra) in title_text
             .iter()
@@ -404,11 +511,22 @@ impl Renderer {
             section(&mut y, &mut first);
             for (i, &item) in items.iter().enumerate() {
                 let text_x = pad + row_x + num_w;
-                let lines = limit(&scene, item, inner - 2.0 * row_x - num_w, ITEM_LINES, ellipsis);
+                let lines = limit(
+                    &scene,
+                    item,
+                    inner - 2.0 * row_x - num_w,
+                    ITEM_LINES,
+                    ellipsis,
+                );
                 let row_h = body.height * lines.0.len() as f32 + 2.0 * row_y;
                 if card.selected == Some(i) {
                     scene.ops.push(Op::Panel {
-                        rect: Rect { x: pad, y, w: inner, h: row_h },
+                        rect: Rect {
+                            x: pad,
+                            y,
+                            w: inner,
+                            h: row_h,
+                        },
                         radius: m.em * 0.35,
                         fill: pal.selected,
                         border: 0.0,
@@ -419,7 +537,16 @@ impl Renderer {
                 let n = numbers[i];
                 let line = scene.shaped[n].wrap(f32::INFINITY).remove(0);
                 scene.text(n, line, pad + row_x, baseline, pal.muted);
-                place_lines(&mut scene, item, lines, text_x, y + row_y, body, pal.text, ellipsis);
+                place_lines(
+                    &mut scene,
+                    item,
+                    lines,
+                    text_x,
+                    y + row_y,
+                    body,
+                    pal.text,
+                    ellipsis,
+                );
                 y += row_h;
             }
         }
@@ -430,7 +557,12 @@ impl Renderer {
             let shown: Vec<Line> = all[all.len().saturating_sub(ITEM_LINES)..].to_vec();
             let h = body.height * shown.len() as f32 + 2.0 * row_y;
             scene.ops.push(Op::Panel {
-                rect: Rect { x: pad, y, w: inner, h },
+                rect: Rect {
+                    x: pad,
+                    y,
+                    w: inner,
+                    h,
+                },
                 radius: m.em * 0.35,
                 fill: pal.field,
                 border: pal.border_px,
@@ -438,10 +570,24 @@ impl Renderer {
             });
             let caret_x = pad + row_x + shown.last().map_or(0.0, |l| l.width);
             let lines = shown.len();
-            place_lines(&mut scene, t, (shown, false), pad + row_x, y + row_y, body, pal.text, ellipsis);
+            place_lines(
+                &mut scene,
+                t,
+                (shown, false),
+                pad + row_x,
+                y + row_y,
+                body,
+                pal.text,
+                ellipsis,
+            );
             let caret_top = y + row_y + body.height * (lines.max(1) - 1) as f32;
             scene.ops.push(Op::Panel {
-                rect: Rect { x: caret_x.round(), y: caret_top + m.px(0.12), w: caret_w, h: body.height - m.px(0.24) },
+                rect: Rect {
+                    x: caret_x.round(),
+                    y: caret_top + m.px(0.12),
+                    w: caret_w,
+                    h: body.height - m.px(0.24),
+                },
                 radius: 0.0,
                 fill: pal.accent,
                 border: 0.0,
@@ -452,7 +598,12 @@ impl Renderer {
         if let Some(t) = preview {
             section(&mut y, &mut first);
             scene.ops.push(Op::Panel {
-                rect: Rect { x: pad, y, w: inner, h: pal.border_px },
+                rect: Rect {
+                    x: pad,
+                    y,
+                    w: inner,
+                    h: pal.border_px,
+                },
                 radius: 0.0,
                 fill: pal.border,
                 border: 0.0,
@@ -463,7 +614,16 @@ impl Renderer {
             let scrolled = all.len() > PREVIEW_LINES;
             let shown = all[all.len().saturating_sub(PREVIEW_LINES)..].to_vec();
             let top = y;
-            y = place_lines(&mut scene, t, (shown, false), pad, y, body, pal.text, ellipsis);
+            y = place_lines(
+                &mut scene,
+                t,
+                (shown, false),
+                pad,
+                y,
+                body,
+                pal.text,
+                ellipsis,
+            );
             if scrolled {
                 scene.ops.push(Op::Fade {
                     x0: pad as i32,
@@ -488,7 +648,12 @@ impl Renderer {
         scene.ops.insert(
             panel_at,
             Op::Panel {
-                rect: Rect { x: 0.0, y: 0.0, w: width, h: height },
+                rect: Rect {
+                    x: 0.0,
+                    y: 0.0,
+                    w: width,
+                    h: height,
+                },
                 radius: m.em * 0.75,
                 fill: pal.bg,
                 border: pal.border_px,
@@ -508,7 +673,13 @@ impl Metrics {
 
 /// Wraps `shaped` at `width` and keeps at most `max` lines, cutting the last
 /// kept line for an ellipsis. Returns the lines and whether they were cut.
-fn limit(scene: &Scene, shaped: usize, width: f32, max: usize, ellipsis: usize) -> (Vec<Line>, bool) {
+fn limit(
+    scene: &Scene,
+    shaped: usize,
+    width: f32,
+    max: usize,
+    ellipsis: usize,
+) -> (Vec<Line>, bool) {
     let s = &scene.shaped[shaped];
     let mut lines = s.wrap(width);
     if lines.len() <= max {
@@ -548,13 +719,22 @@ fn place_lines(
 
 /// The label for the key that takes the next word.
 fn key_hint(bindings: &Bindings) -> String {
-    bindings.take_word.or(bindings.take_all).map(chord_label).unwrap_or_default()
+    bindings
+        .take_word
+        .or(bindings.take_all)
+        .map(chord_label)
+        .unwrap_or_default()
 }
 
 fn chord_label(chord: Chord) -> String {
     let mut label = String::new();
     let mods = chord.mods;
-    for (on, name) in [(mods.ctrl, "Ctrl+"), (mods.alt, "Alt+"), (mods.shift, "Shift+"), (mods.meta, "Super+")] {
+    for (on, name) in [
+        (mods.ctrl, "Ctrl+"),
+        (mods.alt, "Alt+"),
+        (mods.shift, "Shift+"),
+        (mods.meta, "Super+"),
+    ] {
         if on {
             label.push_str(name);
         }
@@ -585,7 +765,11 @@ mod tests {
     use oft_engine::io::Mods;
 
     fn view(text: &str, shown: usize) -> SuggestionView {
-        SuggestionView { text: text.into(), shown, ..Default::default() }
+        SuggestionView {
+            text: text.into(),
+            shown,
+            ..Default::default()
+        }
     }
 
     fn premultiplied(img: &Image) -> bool {
@@ -607,9 +791,18 @@ mod tests {
         let mut r = Renderer::new();
         let short = r.suggestion(&view(" world", 6), &Theme::default());
         let long = r.suggestion(&view(" world, how are you", 19), &Theme::default());
-        let hidpi = r.suggestion(&view(" world", 6), &Theme { scale: 2.0, ..Theme::default() });
+        let hidpi = r.suggestion(
+            &view(" world", 6),
+            &Theme {
+                scale: 2.0,
+                ..Theme::default()
+            },
+        );
         assert!(long.width > short.width);
-        assert!((hidpi.width as f32 / short.width as f32 - 2.0).abs() < 0.15, "{hidpi:?} vs {short:?}");
+        assert!(
+            (hidpi.width as f32 / short.width as f32 - 2.0).abs() < 0.15,
+            "{hidpi:?} vs {short:?}"
+        );
         assert!((hidpi.height as f32 / short.height as f32 - 2.0).abs() < 0.15);
         for img in [&short, &long, &hidpi] {
             assert_eq!(img.pixels.len(), (img.width * img.height) as usize);
@@ -632,10 +825,17 @@ mod tests {
     #[test]
     fn card_respects_max_width_and_scrolls_preview() {
         let mut r = Renderer::new();
-        let theme = Theme { dark: true, ..Theme::default() };
+        let theme = Theme {
+            dark: true,
+            ..Theme::default()
+        };
         let mut card = CardView {
             title: "Reply".into(),
-            items: vec!["Accept and suggest Tuesday".into(), "Decline politely".into(), "Ask for details".into()],
+            items: vec![
+                "Accept and suggest Tuesday".into(),
+                "Decline politely".into(),
+                "Ask for details".into(),
+            ],
             selected: Some(1),
             input: Some("make it short".into()),
             preview: Some("Thanks! ".repeat(10)),
@@ -651,15 +851,23 @@ mod tests {
         assert!(long.height > short.height);
         card.preview = Some("Thanks! ".repeat(800));
         let longer = r.card(&card, &theme, 420);
-        assert_eq!(long.height, longer.height, "the preview is capped and scrolled");
+        assert_eq!(
+            long.height, longer.height,
+            "the preview is capped and scrolled"
+        );
     }
 
     #[test]
     fn key_hint_follows_bindings() {
         let mut bindings = Bindings::default();
         assert_eq!(key_hint(&bindings), "Tab");
-        bindings.take_word =
-            Some(Chord { key: Key::Right, mods: Mods { ctrl: true, ..Mods::default() } });
+        bindings.take_word = Some(Chord {
+            key: Key::Right,
+            mods: Mods {
+                ctrl: true,
+                ..Mods::default()
+            },
+        });
         assert_eq!(key_hint(&bindings), "Ctrl+→");
         bindings.take_word = None;
         assert_eq!(key_hint(&bindings), "`");

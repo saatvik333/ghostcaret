@@ -26,24 +26,35 @@ pub struct Loaded {
 
 impl SettingsStore {
     pub fn new(config_dir: &Path) -> SettingsStore {
-        SettingsStore { path: config_dir.join("settings.toml") }
+        SettingsStore {
+            path: config_dir.join("settings.toml"),
+        }
     }
 
     pub fn load(&self) -> Loaded {
         let text = match fs::read_to_string(&self.path) {
             Ok(text) => text,
             Err(e) if e.kind() == io::ErrorKind::NotFound => {
-                return Loaded { settings: Settings::default(), error: None };
+                return Loaded {
+                    settings: Settings::default(),
+                    error: None,
+                };
             }
             Err(e) => {
                 return Loaded {
                     settings: Settings::default(),
-                    error: Some(format!("Could not read settings ({}); using defaults.", e.kind())),
+                    error: Some(format!(
+                        "Could not read settings ({}); using defaults.",
+                        e.kind()
+                    )),
                 };
             }
         };
         match Settings::from_toml(&text) {
-            Ok(settings) => Loaded { settings, error: None },
+            Ok(settings) => Loaded {
+                settings,
+                error: None,
+            },
             Err(err) => {
                 let kept = self.path.with_extension("toml.invalid");
                 let note = match fs::rename(&self.path, &kept) {
@@ -52,7 +63,10 @@ impl SettingsStore {
                 };
                 Loaded {
                     settings: Settings::default(),
-                    error: Some(format!("{}. Using default settings; {note}.", capitalized(&err.to_string()))),
+                    error: Some(format!(
+                        "{}. Using default settings; {note}.",
+                        capitalized(&err.to_string())
+                    )),
                 }
             }
         }
@@ -83,7 +97,9 @@ fn capitalized(text: &str) -> String {
 
 /// Writes `bytes` to `path` so readers see either the old or the new file.
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
-    let dir = path.parent().ok_or_else(|| io::Error::other("path has no parent"))?;
+    let dir = path
+        .parent()
+        .ok_or_else(|| io::Error::other("path has no parent"))?;
     fs::create_dir_all(dir)?;
     let mut tmp_name = path.file_name().unwrap_or_default().to_os_string();
     tmp_name.push(".tmp");
@@ -135,7 +151,11 @@ mod tests {
     fn save_then_load_round_trips() {
         let dir = scratch("roundtrip");
         let store = SettingsStore::new(&dir);
-        let settings = Settings { boldness: 0.8, pause_ms: 120, ..Settings::default() };
+        let settings = Settings {
+            boldness: 0.8,
+            pause_ms: 120,
+            ..Settings::default()
+        };
         store.save(&settings).unwrap();
         let loaded = store.load();
         assert_eq!(loaded.settings, settings);
@@ -148,9 +168,18 @@ mod tests {
         let dir = scratch("refuse");
         let store = SettingsStore::new(&dir);
         store.save(&Settings::default()).unwrap();
-        let bad = Settings { boldness: 2.0, ..Settings::default() };
+        let bad = Settings {
+            boldness: 2.0,
+            ..Settings::default()
+        };
         let err = store.save(&bad).unwrap_err();
-        assert!(matches!(err, SaveError::Invalid(SettingsError::Invalid { key: "boldness", .. })));
+        assert!(matches!(
+            err,
+            SaveError::Invalid(SettingsError::Invalid {
+                key: "boldness",
+                ..
+            })
+        ));
         assert_eq!(store.load().settings, Settings::default());
     }
 
@@ -159,8 +188,11 @@ mod tests {
         let dir = scratch("invalid");
         // Assembled at run time so the source holds nothing token-shaped.
         let secret = ["sk", "-ant-", "test", "-not-a-key"].concat();
-        fs::write(dir.join("settings.toml"), format!("pause_ms = 40\n\n[context]\nabout_me = 7\nclipboard = \"{secret}\"\n"))
-            .unwrap();
+        fs::write(
+            dir.join("settings.toml"),
+            format!("pause_ms = 40\n\n[context]\nabout_me = 7\nclipboard = \"{secret}\"\n"),
+        )
+        .unwrap();
         let loaded = SettingsStore::new(&dir).load();
         assert_eq!(loaded.settings, Settings::default());
         let error = loaded.error.unwrap();
@@ -175,7 +207,11 @@ mod tests {
     fn value_in_wrong_place_is_not_echoed() {
         let dir = scratch("echo");
         let secret = ["sk", "-proj-", "test", "-not-a-key"].concat();
-        fs::write(dir.join("settings.toml"), format!("boldness = \"{secret}\"\n")).unwrap();
+        fs::write(
+            dir.join("settings.toml"),
+            format!("boldness = \"{secret}\"\n"),
+        )
+        .unwrap();
         let error = SettingsStore::new(&dir).load().error.unwrap();
         assert!(error.contains("`boldness`"), "{error}");
         assert!(!error.contains(&secret), "{error}");

@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+    paths-ignore: ["site/**", "docs/**", "*.md"]
+  pull_request:
+    paths-ignore: ["site/**", "docs/**", "*.md"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # Tests and clippy don't need full link-time optimisation.
+  CARGO_PROFILE_RELEASE_LTO: "off"
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: System libraries for Tauri and Wayland
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+            librsvg2-dev libxkbcommon-dev libwayland-dev libfontconfig-dev libdbus-1-dev
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.3"
+      - name: Build the settings UI
+        working-directory: app
+        run: bun install --frozen-lockfile && bun run check && bun run build
+      - uses: Swatinem/rust-cache@v2
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --no-default-features -- -D warnings
+      - name: Tests
+        run: cargo test --workspace --no-default-features
+      - name: Local inference (CPU)
+        run: cargo test -p oft-local
+
+  windows-cross:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v7
+      - uses: Swatinem/rust-cache@v2
+      - name: Clippy for the Windows backend
+        run: cargo clippy -p oft-platform --all-targets -- -D warnings
+      - name: Windows backend tests
+        run: cargo test -p oft-platform

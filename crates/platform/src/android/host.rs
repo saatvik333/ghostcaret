@@ -19,7 +19,11 @@ pub(crate) struct KeyboardHost {
 
 impl KeyboardHost {
     pub(crate) fn new(bridge: Arc<Bridge>, config_dir: PathBuf) -> KeyboardHost {
-        KeyboardHost { bridge, config_dir, shown: Mutex::new(None) }
+        KeyboardHost {
+            bridge,
+            config_dir,
+            shown: Mutex::new(None),
+        }
     }
 }
 

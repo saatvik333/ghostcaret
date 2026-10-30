@@ -74,7 +74,10 @@ pub(crate) enum Command {
     Active(bool),
     Insert(InsertRequest),
     /// A rendered overlay for the popup; `seq` names the request.
-    Frame { seq: u64, image: Image },
+    Frame {
+        seq: u64,
+        image: Image,
+    },
     /// Announce shown suggestions to screen readers.
     Announce(bool),
     Stop,
@@ -82,7 +85,11 @@ pub(crate) enum Command {
 
 /// What the render thread draws.
 pub(crate) enum RenderJob {
-    Draw { seq: u64, overlay: Overlay, scale: f32 },
+    Draw {
+        seq: u64,
+        overlay: Overlay,
+        scale: f32,
+    },
     Bindings(Bindings),
     Style(GhostStyle),
     Dark(bool),
@@ -226,7 +233,9 @@ impl LinuxBackend {
                 }
             })?,
         );
-        let ready = ready_rx.recv().unwrap_or_else(|_| Err(StartError::Failed("the Wayland thread exited".into())));
+        let ready = ready_rx
+            .recv()
+            .unwrap_or_else(|_| Err(StartError::Failed("the Wayland thread exited".into())));
         if let Err(e) = ready {
             let _ = render.send(RenderJob::Stop);
             for t in threads {
@@ -288,7 +297,10 @@ impl Backend for LinuxBackend {
             Some((focused, app)) if *focused == field => app.clone(),
             _ => return None,
         };
-        self.conversation.lock().expect("conversation lock").read(&app)
+        self.conversation
+            .lock()
+            .expect("conversation lock")
+            .read(&app)
     }
 }
 
@@ -313,24 +325,35 @@ fn spawn(name: &str, f: impl FnOnce() + Send + 'static) -> Result<JoinHandle<()>
 /// rendered; older ones are skipped.
 fn render_loop(jobs: Receiver<RenderJob>, commands: Sender<Command>, waker: Arc<Waker>) {
     let mut renderer = Renderer::new();
-    let mut theme = Theme { font_px: FONT_PX, ..Theme::default() };
+    let mut theme = Theme {
+        font_px: FONT_PX,
+        ..Theme::default()
+    };
     while let Ok(first) = jobs.recv() {
         let mut draw = None;
         for job in std::iter::once(first).chain(jobs.try_iter()) {
             match job {
-                RenderJob::Draw { seq, overlay, scale } => draw = Some((seq, overlay, scale)),
+                RenderJob::Draw {
+                    seq,
+                    overlay,
+                    scale,
+                } => draw = Some((seq, overlay, scale)),
                 RenderJob::Bindings(b) => renderer.set_bindings(&b),
                 RenderJob::Style(style) => theme.style = style,
                 RenderJob::Dark(dark) => theme.dark = dark,
                 RenderJob::Stop => return,
             }
         }
-        let Some((seq, overlay, scale)) = draw else { continue };
+        let Some((seq, overlay, scale)) = draw else {
+            continue;
+        };
         theme.scale = scale;
         let image = match &overlay {
             Overlay::Hidden => Image::default(),
             Overlay::Suggestion(view) => renderer.suggestion(view, &theme),
-            Overlay::Card(card) => renderer.card(card, &theme, (CARD_MAX_PX * scale).round() as u32),
+            Overlay::Card(card) => {
+                renderer.card(card, &theme, (CARD_MAX_PX * scale).round() as u32)
+            }
         };
         if commands.send(Command::Frame { seq, image }).is_err() {
             return;
@@ -365,17 +388,21 @@ fn watchdog(shared: Arc<Shared>) {
 /// Follows the desktop's light or dark preference through the XDG settings
 /// portal, without polling.
 fn spawn_theme_watch(render: Sender<RenderJob>) {
-    let _ = thread::Builder::new().name("oft-theme".into()).spawn(move || {
-        let Ok(watch) = portal::ColorScheme::connect() else { return };
-        if let Some(dark) = watch.dark() {
-            let _ = render.send(RenderJob::Dark(dark));
-        }
-        for dark in watch.changes() {
-            if render.send(RenderJob::Dark(dark)).is_err() {
+    let _ = thread::Builder::new()
+        .name("oft-theme".into())
+        .spawn(move || {
+            let Ok(watch) = portal::ColorScheme::connect() else {
                 return;
+            };
+            if let Some(dark) = watch.dark() {
+                let _ = render.send(RenderJob::Dark(dark));
             }
-        }
-    });
+            for dark in watch.changes() {
+                if render.send(RenderJob::Dark(dark)).is_err() {
+                    return;
+                }
+            }
+        });
 }
 
 /// Turns a status into the event the controller expects.

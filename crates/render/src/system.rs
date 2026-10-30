@@ -67,18 +67,46 @@ mod imp {
         fn FcPatternAddString(p: *mut FcPattern, object: *const c_char, s: *const u8) -> FcBool;
         fn FcPatternAddInteger(p: *mut FcPattern, object: *const c_char, i: c_int) -> FcBool;
         fn FcPatternAddBool(p: *mut FcPattern, object: *const c_char, b: FcBool) -> FcBool;
-        fn FcPatternAddCharSet(p: *mut FcPattern, object: *const c_char, c: *const FcCharSet) -> FcBool;
-        fn FcPatternGetString(p: *const FcPattern, object: *const c_char, n: c_int, s: *mut *mut u8) -> c_int;
-        fn FcPatternGetInteger(p: *const FcPattern, object: *const c_char, n: c_int, i: *mut c_int) -> c_int;
-        fn FcPatternGetBool(p: *const FcPattern, object: *const c_char, n: c_int, b: *mut FcBool) -> c_int;
-        fn FcPatternGetCharSet(p: *const FcPattern, object: *const c_char, n: c_int, c: *mut *mut FcCharSet) -> c_int;
+        fn FcPatternAddCharSet(
+            p: *mut FcPattern,
+            object: *const c_char,
+            c: *const FcCharSet,
+        ) -> FcBool;
+        fn FcPatternGetString(
+            p: *const FcPattern,
+            object: *const c_char,
+            n: c_int,
+            s: *mut *mut u8,
+        ) -> c_int;
+        fn FcPatternGetInteger(
+            p: *const FcPattern,
+            object: *const c_char,
+            n: c_int,
+            i: *mut c_int,
+        ) -> c_int;
+        fn FcPatternGetBool(
+            p: *const FcPattern,
+            object: *const c_char,
+            n: c_int,
+            b: *mut FcBool,
+        ) -> c_int;
+        fn FcPatternGetCharSet(
+            p: *const FcPattern,
+            object: *const c_char,
+            n: c_int,
+            c: *mut *mut FcCharSet,
+        ) -> c_int;
         fn FcCharSetCreate() -> *mut FcCharSet;
         fn FcCharSetDestroy(c: *mut FcCharSet);
         fn FcCharSetAddChar(c: *mut FcCharSet, ucs4: c_uint) -> FcBool;
         fn FcCharSetHasChar(c: *const FcCharSet, ucs4: c_uint) -> FcBool;
         fn FcConfigSubstitute(config: *mut FcConfig, p: *mut FcPattern, kind: c_int) -> FcBool;
         fn FcDefaultSubstitute(p: *mut FcPattern);
-        fn FcFontMatch(config: *mut FcConfig, p: *mut FcPattern, result: *mut c_int) -> *mut FcPattern;
+        fn FcFontMatch(
+            config: *mut FcConfig,
+            p: *mut FcPattern,
+            result: *mut c_int,
+        ) -> *mut FcPattern;
     }
 
     const FAMILY: &CStr = c"family";
@@ -118,7 +146,11 @@ mod imp {
             }
             let pattern = Pattern(pattern);
             FcPatternAddString(pattern.0, FAMILY.as_ptr(), c"sans-serif".as_ptr().cast());
-            let fc_weight = if weight >= super::BOLD { FC_WEIGHT_BOLD } else { FC_WEIGHT_REGULAR };
+            let fc_weight = if weight >= super::BOLD {
+                FC_WEIGHT_BOLD
+            } else {
+                FC_WEIGHT_REGULAR
+            };
             FcPatternAddInteger(pattern.0, WEIGHT.as_ptr(), fc_weight);
             if color {
                 FcPatternAddBool(pattern.0, COLOR.as_ptr(), 1);
@@ -152,7 +184,9 @@ mod imp {
                 }
             }
             let mut file = ptr::null_mut();
-            if FcPatternGetString(matched.0, FILE.as_ptr(), 0, &mut file) != FC_RESULT_MATCH || file.is_null() {
+            if FcPatternGetString(matched.0, FILE.as_ptr(), 0, &mut file) != FC_RESULT_MATCH
+                || file.is_null()
+            {
                 return Vec::new();
             }
             let path = PathBuf::from(OsStr::from_bytes(CStr::from_ptr(file.cast()).to_bytes()));
@@ -198,14 +232,20 @@ mod imp {
     const COLOR: &[(&str, u32)] = &[("seguiemj.ttf", 0)];
 
     pub(super) fn locate(weight: f32, _ch: Option<char>, color: bool) -> Vec<Located> {
-        let dir = std::env::var_os("WINDIR").map(PathBuf::from).unwrap_or_else(|| PathBuf::from(r"C:\Windows"));
+        let dir = std::env::var_os("WINDIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(r"C:\Windows"));
         let fonts = dir.join("Fonts");
         let bold = weight >= super::BOLD;
         BOLD.iter()
             .filter(|_| bold)
             .chain(COLOR.iter().filter(|_| color))
             .chain(REGULAR)
-            .map(|&(file, index)| Located { path: fonts.join(file), index, wght: None })
+            .map(|&(file, index)| Located {
+                path: fonts.join(file),
+                index,
+                wght: None,
+            })
             .filter(|l| l.path.is_file())
             .collect()
     }

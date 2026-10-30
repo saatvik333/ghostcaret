@@ -1162,8 +1162,9 @@ mod tests {
         let alt = |down, t| modifier(LALT, Modifier::LeftAlt, down, t);
         assert_eq!(g.key(&alt(true, 0)), Verdict::Consume);
         assert_eq!(g.key(&alt(true, 30)), Verdict::Consume, "repeat");
-        assert_eq!(g.key(&named(RIGHT, Key::Right, ALT, true)), Verdict::Consume);
-        assert_eq!(g.key(&named(RIGHT, Key::Right, ALT, false)), Verdict::Consume);
+        let right = |down| named(RIGHT, Key::Right, ALT, down);
+        assert_eq!(g.key(&right(true)), Verdict::Consume);
+        assert_eq!(g.key(&right(false)), Verdict::Consume);
         assert_eq!(g.key(&alt(false, 60)), Verdict::Consume);
         assert_eq!(shown(&g), Some(" world, how"));
         assert!(events(&mut g).is_empty());
@@ -1177,7 +1178,8 @@ mod tests {
         assert_eq!(g.key(&alt(false, 50)), Verdict::Replay(LALT), "a lone tap");
 
         assert_eq!(g.key(&alt(true, 100)), Verdict::Consume);
-        assert_eq!(g.key(&ch('d', ALT, true)), Verdict::Replay(LALT), "an app shortcut");
+        let alt_d = ch('d', ALT, true);
+        assert_eq!(g.key(&alt_d), Verdict::Replay(LALT), "an app shortcut");
         assert_eq!(g.key(&ch('d', ALT, false)), Verdict::Pass);
         assert_eq!(g.key(&alt(false, 150)), Verdict::Pass);
     }
@@ -1186,13 +1188,14 @@ mod tests {
     fn chord_modifiers_pass_at_once_when_no_chord_can_act() {
         let mut g = Gate::new(TapStyle::Defer);
         g.set_focus(Some(FIELD));
-        assert_eq!(g.key(&modifier(LALT, Modifier::LeftAlt, true, 0)), Verdict::Pass);
-        assert_eq!(g.key(&modifier(LALT, Modifier::LeftAlt, false, 50)), Verdict::Pass);
+        let alt = |down, t| modifier(LALT, Modifier::LeftAlt, down, t);
+        assert_eq!(g.key(&alt(true, 0)), Verdict::Pass);
+        assert_eq!(g.key(&alt(false, 50)), Verdict::Pass);
         let mut g = gate_with(card(None), TapStyle::Defer);
-        assert_eq!(g.key(&modifier(LALT, Modifier::LeftAlt, true, 0)), Verdict::Pass);
+        assert_eq!(g.key(&alt(true, 0)), Verdict::Pass);
         // A backend that lets presses through masks the release itself.
         let mut g = gate_with(Overlay::Suggestion(view(" world")), TapStyle::Pass);
-        assert_eq!(g.key(&modifier(LALT, Modifier::LeftAlt, true, 0)), Verdict::Pass);
+        assert_eq!(g.key(&alt(true, 0)), Verdict::Pass);
     }
 
     #[test]

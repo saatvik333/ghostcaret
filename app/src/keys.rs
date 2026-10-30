@@ -59,22 +59,38 @@ pub fn check(bindings: &Bindings) -> Vec<KeyProblem> {
         if let Trigger::Chord(chord) = trigger
             && let Some(why) = reserved(chord)
         {
-            problems.push(KeyProblem { slot, message: why.to_owned() });
+            problems.push(KeyProblem {
+                slot,
+                message: why.to_owned(),
+            });
             continue;
         }
         if let Some(&(other, _)) = all[..i].iter().find(|(_, t)| *t == Some(trigger)) {
-            problems.push(KeyProblem { slot, message: format!("Already used by “{}”.", other.label()) });
+            problems.push(KeyProblem {
+                slot,
+                message: format!("Already used by “{}”.", other.label()),
+            });
         }
     }
     problems
 }
 
-const NONE: Mods = Mods { ctrl: false, alt: false, shift: false, meta: false };
+const NONE: Mods = Mods {
+    ctrl: false,
+    alt: false,
+    shift: false,
+    meta: false,
+};
 
 /// Why `chord` cannot be bound, if it cannot.
 fn reserved(chord: Chord) -> Option<&'static str> {
     let Chord { key, mods } = chord;
-    let typing = mods == NONE || mods == Mods { shift: true, ..NONE };
+    let typing = mods == NONE
+        || mods
+            == Mods {
+                shift: true,
+                ..NONE
+            };
     if mods.meta {
         return Some("Shortcuts with the Super/Windows/Command key belong to the system.");
     }
@@ -82,17 +98,40 @@ fn reserved(chord: Chord) -> Option<&'static str> {
         Key::Char(c) if typing && (c.is_alphanumeric() || c.is_whitespace()) => {
             Some("This key types text; choose a symbol key or add Ctrl or Alt.")
         }
-        Key::Space | Key::Enter | Key::Backspace if typing => Some("This key is needed for typing."),
-        Key::Tab if mods == Mods { alt: true, ..NONE } || mods == Mods { alt: true, shift: true, ..NONE } => {
+        Key::Space | Key::Enter | Key::Backspace if typing => {
+            Some("This key is needed for typing.")
+        }
+        Key::Tab
+            if mods == Mods { alt: true, ..NONE }
+                || mods
+                    == Mods {
+                        alt: true,
+                        shift: true,
+                        ..NONE
+                    } =>
+        {
             Some("Alt+Tab switches windows.")
         }
         Key::F(4) if mods.alt => Some("Alt+F4 closes windows."),
-        Key::Space if mods == Mods { alt: true, ..NONE } => Some("Alt+Space opens the window menu."),
+        Key::Space if mods == Mods { alt: true, ..NONE } => {
+            Some("Alt+Space opens the window menu.")
+        }
         Key::Escape if mods.ctrl => Some("Ctrl+Esc belongs to the system."),
-        Key::Char(c) if mods == Mods { ctrl: true, ..NONE } && "acfnpstvwxyz".contains(c.to_ascii_lowercase()) => {
+        Key::Char(c)
+            if mods == Mods { ctrl: true, ..NONE }
+                && "acfnpstvwxyz".contains(c.to_ascii_lowercase()) =>
+        {
             Some("Apps use this shortcut (copy, paste, undo, save and similar).")
         }
-        Key::Char(c) if mods == Mods { ctrl: true, shift: true, ..NONE } && "tvz".contains(c.to_ascii_lowercase()) => {
+        Key::Char(c)
+            if mods
+                == Mods {
+                    ctrl: true,
+                    shift: true,
+                    ..NONE
+                }
+                && "tvz".contains(c.to_ascii_lowercase()) =>
+        {
             Some("Apps use this shortcut (paste, redo, reopen tab).")
         }
         _ => None,
@@ -115,7 +154,10 @@ mod tests {
 
     #[test]
     fn duplicate_is_reported_on_the_later_slot() {
-        let b = Bindings { show_more: chord(Key::Tab, NONE), ..Bindings::default() };
+        let b = Bindings {
+            show_more: chord(Key::Tab, NONE),
+            ..Bindings::default()
+        };
         let problems = check(&b);
         assert_eq!(problems.len(), 1);
         assert_eq!(problems[0].slot, Slot::ShowMore);
@@ -125,7 +167,10 @@ mod tests {
     #[test]
     fn flow_draft_chord_conflicts_with_chords() {
         let b = Bindings {
-            flow_draft: Some(Trigger::Chord(Chord { key: Key::Escape, mods: NONE })),
+            flow_draft: Some(Trigger::Chord(Chord {
+                key: Key::Escape,
+                mods: NONE,
+            })),
             ..Bindings::default()
         };
         assert_eq!(check(&b)[0].slot, Slot::FlowDraft);
@@ -137,7 +182,13 @@ mod tests {
         let ctrl = Mods { ctrl: true, ..NONE };
         for c in [
             chord(Key::Char('a'), NONE),
-            chord(Key::Char('A'), Mods { shift: true, ..NONE }),
+            chord(
+                Key::Char('A'),
+                Mods {
+                    shift: true,
+                    ..NONE
+                },
+            ),
             chord(Key::Char('7'), NONE),
             chord(Key::Space, NONE),
             chord(Key::Enter, NONE),
@@ -147,7 +198,10 @@ mod tests {
             chord(Key::Char('V'), ctrl),
             chord(Key::Right, Mods { meta: true, ..NONE }),
         ] {
-            let b = Bindings { take_all: c, ..Bindings::default() };
+            let b = Bindings {
+                take_all: c,
+                ..Bindings::default()
+            };
             assert_eq!(check(&b).len(), 1, "{c:?} should be refused");
         }
     }
@@ -161,7 +215,10 @@ mod tests {
             chord(Key::Char('j'), Mods { alt: true, ..NONE }),
             chord(Key::F(8), NONE),
         ] {
-            let b = Bindings { take_all: c, ..Bindings::default() };
+            let b = Bindings {
+                take_all: c,
+                ..Bindings::default()
+            };
             assert_eq!(check(&b), vec![], "{c:?} should be allowed");
         }
     }

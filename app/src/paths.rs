@@ -16,8 +16,10 @@ static DIRS: OnceLock<Dirs> = OnceLock::new();
 pub fn init(mobile: Option<(PathBuf, PathBuf)>) -> bool {
     let dirs = match mobile {
         Some((config, data)) => Some(Dirs { config, data }),
-        None => directories::ProjectDirs::from("", "", "ghostcaret")
-            .map(|d| Dirs { config: d.config_dir().to_path_buf(), data: d.data_dir().to_path_buf() }),
+        None => directories::ProjectDirs::from("", "", "ghostcaret").map(|d| Dirs {
+            config: d.config_dir().to_path_buf(),
+            data: d.data_dir().to_path_buf(),
+        }),
     };
     match dirs {
         Some(d) => DIRS.set(d).is_ok() || DIRS.get().is_some(),
@@ -26,7 +28,8 @@ pub fn init(mobile: Option<(PathBuf, PathBuf)>) -> bool {
 }
 
 fn dirs() -> &'static Dirs {
-    DIRS.get().expect("paths::init runs before anything touches files")
+    DIRS.get()
+        .expect("paths::init runs before anything touches files")
 }
 
 /// `settings.toml` and the setup progress.

@@ -9,8 +9,8 @@ use std::time::Instant;
 
 use crossbeam_channel::{Receiver, Sender};
 use oft_engine::io::{
-    AppInfo, BackendStatus, DismissReason, Event, FieldId, FieldKind, FieldSnapshot, InsertOutcome, InsertRequest,
-    Overlay, Replace,
+    AppInfo, BackendStatus, DismissReason, Event, FieldId, FieldKind, FieldSnapshot, InsertOutcome,
+    InsertRequest, Overlay, Replace,
 };
 use oft_render::Image;
 use rustix::event::{PollFd, PollFlags, Timespec};
@@ -24,9 +24,13 @@ use wayland_client::protocol::wl_seat::WlSeat;
 use wayland_client::protocol::wl_shm::WlShm;
 use wayland_client::protocol::wl_shm_pool::WlShmPool;
 use wayland_client::protocol::wl_surface::{self, WlSurface};
-use wayland_client::{Connection, Dispatch, EventQueue, QueueHandle, WEnum, delegate_noop, event_created_child};
+use wayland_client::{
+    Connection, Dispatch, EventQueue, QueueHandle, WEnum, delegate_noop, event_created_child,
+};
 use wayland_protocols::wp::fractional_scale::v1::client::wp_fractional_scale_manager_v1::WpFractionalScaleManagerV1;
-use wayland_protocols::wp::fractional_scale::v1::client::wp_fractional_scale_v1::{self, WpFractionalScaleV1};
+use wayland_protocols::wp::fractional_scale::v1::client::wp_fractional_scale_v1::{
+    self, WpFractionalScaleV1,
+};
 use wayland_protocols::wp::text_input::zv3::client::zwp_text_input_v3::ChangeCause;
 use wayland_protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use wayland_protocols::wp::viewporter::client::wp_viewporter::WpViewporter;
@@ -34,7 +38,9 @@ use wayland_protocols_misc::zwp_input_method_v2::client::zwp_input_method_keyboa
     self, ZwpInputMethodKeyboardGrabV2,
 };
 use wayland_protocols_misc::zwp_input_method_v2::client::zwp_input_method_manager_v2::ZwpInputMethodManagerV2;
-use wayland_protocols_misc::zwp_input_method_v2::client::zwp_input_method_v2::{self, ZwpInputMethodV2};
+use wayland_protocols_misc::zwp_input_method_v2::client::zwp_input_method_v2::{
+    self, ZwpInputMethodV2,
+};
 use wayland_protocols_misc::zwp_input_method_v2::client::zwp_input_popup_surface_v2::{
     self, ZwpInputPopupSurfaceV2,
 };
@@ -70,7 +76,9 @@ pub(crate) struct Session {
 /// Connects to the compositor the environment names.
 pub(crate) fn open() -> Result<Connection, StartError> {
     Connection::connect_to_env().map_err(|e| {
-        StartError::Unsupported(format!("no Wayland session: {e} (Ghostcaret needs a Wayland compositor)"))
+        StartError::Unsupported(format!(
+            "no Wayland session: {e} (Ghostcaret needs a Wayland compositor)"
+        ))
     })
 }
 
@@ -82,8 +90,8 @@ impl Session {
         shared: Arc<Shared>,
         render: Sender<RenderJob>,
     ) -> Result<Session, StartError> {
-        let (globals, mut queue) =
-            registry_queue_init::<State>(&conn).map_err(|e| StartError::Failed(format!("Wayland registry: {e}")))?;
+        let (globals, mut queue) = registry_queue_init::<State>(&conn)
+            .map_err(|e| StartError::Failed(format!("Wayland registry: {e}")))?;
         let qh = queue.handle();
         let g = Globals::bind(&globals, &qh)?;
         let im = g.im_manager.get_input_method(&g.seat, &qh, ());
@@ -117,13 +125,20 @@ impl Session {
             announcer: None,
             g,
         };
-        queue.roundtrip(&mut state).map_err(|e| StartError::Failed(format!("Wayland roundtrip: {e}")))?;
+        queue
+            .roundtrip(&mut state)
+            .map_err(|e| StartError::Failed(format!("Wayland roundtrip: {e}")))?;
         if state.unavailable {
             return Err(StartError::Unsupported(
-                "another input method (such as fcitx5 or IBus) is already running on this seat".into(),
+                "another input method (such as fcitx5 or IBus) is already running on this seat"
+                    .into(),
             ));
         }
-        let socket = conn.backend().poll_fd().try_clone_to_owned().map_err(|e| StartError::Failed(e.to_string()))?;
+        let socket = conn
+            .backend()
+            .poll_fd()
+            .try_clone_to_owned()
+            .map_err(|e| StartError::Failed(e.to_string()))?;
         *shared.socket.lock().expect("socket lock") = Some(socket);
         Ok(Session { conn, queue, state })
     }
@@ -156,7 +171,9 @@ pub(crate) fn run(
                     return;
                 }
                 reconnects += 1;
-                match open().and_then(|conn| Session::connect(conn, events.clone(), shared.clone(), render.clone())) {
+                match open().and_then(|conn| {
+                    Session::connect(conn, events.clone(), shared.clone(), render.clone())
+                }) {
                     Ok(s) => {
                         session = s;
                         let _ = events.send(Event::Status(BackendStatus::Ready));
@@ -178,7 +195,9 @@ impl Session {
     fn run(&mut self, commands: &Receiver<Command>, waker: &Waker) -> Result<(), String> {
         let state = &mut self.state;
         loop {
-            self.queue.dispatch_pending(state).map_err(|e| e.to_string())?;
+            self.queue
+                .dispatch_pending(state)
+                .map_err(|e| e.to_string())?;
             state.after_dispatch();
             for command in commands.try_iter() {
                 if !state.command(command) {
@@ -194,22 +213,32 @@ impl Session {
             state.run_timers(Instant::now());
             let write_blocked = match self.conn.flush() {
                 Ok(()) => false,
-                Err(wayland_client::backend::WaylandError::Io(e)) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                Err(wayland_client::backend::WaylandError::Io(e))
+                    if e.kind() == std::io::ErrorKind::WouldBlock =>
+                {
                     true
                 }
                 Err(e) => return Err(e.to_string()),
             };
-            let Some(guard) = self.queue.prepare_read() else { continue };
+            let Some(guard) = self.queue.prepare_read() else {
+                continue;
+            };
             let timeout = state.next_deadline().map(|d| {
                 let left = d.saturating_duration_since(Instant::now());
-                Timespec { tv_sec: left.as_secs() as i64, tv_nsec: i64::from(left.subsec_nanos()) }
+                Timespec {
+                    tv_sec: left.as_secs() as i64,
+                    tv_nsec: i64::from(left.subsec_nanos()),
+                }
             });
             let mut wl_flags = PollFlags::IN;
             if write_blocked {
                 wl_flags |= PollFlags::OUT;
             }
             let (wl_fd, wake_fd) = (guard.connection_fd(), waker.fd());
-            let mut fds = [PollFd::new(&wl_fd, wl_flags), PollFd::new(&wake_fd, PollFlags::IN)];
+            let mut fds = [
+                PollFd::new(&wl_fd, wl_flags),
+                PollFd::new(&wake_fd, PollFlags::IN),
+            ];
             state.shared.idle();
             let polled = rustix::event::poll(&mut fds, timeout.as_ref());
             state.shared.busy();
@@ -217,7 +246,9 @@ impl Session {
                 Ok(_) | Err(rustix::io::Errno::INTR) => {}
                 Err(e) => return Err(e.to_string()),
             }
-            let readable = fds[0].revents().intersects(PollFlags::IN | PollFlags::ERR | PollFlags::HUP);
+            let readable = fds[0]
+                .revents()
+                .intersects(PollFlags::IN | PollFlags::ERR | PollFlags::HUP);
             let woken = fds[1].revents().contains(PollFlags::IN);
             if readable {
                 match guard.read() {
@@ -248,22 +279,37 @@ struct Globals {
 
 impl Globals {
     fn bind(globals: &GlobalList, qh: &QueueHandle<State>) -> Result<Globals, StartError> {
-        let missing = |name: &str, e| StartError::Unsupported(format!("the compositor does not offer {name} ({e})"));
+        let missing = |name: &str, e| {
+            StartError::Unsupported(format!("the compositor does not offer {name} ({e})"))
+        };
         let globals_ = globals;
-        let toplevels = globals_.bind::<ZwlrForeignToplevelManagerV1, _, _>(qh, 1..=3, ()).ok();
+        let toplevels = globals_
+            .bind::<ZwlrForeignToplevelManagerV1, _, _>(qh, 1..=3, ())
+            .ok();
         if toplevels.is_none() {
-            log::warn!("zwlr_foreign_toplevel_manager_v1 is missing; per-app rules cannot tell apps apart");
+            log::warn!(
+                "zwlr_foreign_toplevel_manager_v1 is missing; per-app rules cannot tell apps apart"
+            );
         }
         Ok(Globals {
-            compositor: globals.bind(qh, 4..=6, ()).map_err(|e| missing("wl_compositor", e))?,
-            shm: globals.bind(qh, 1..=1, ()).map_err(|e| missing("wl_shm", e))?,
-            seat: globals.bind(qh, 1..=9, ()).map_err(|e| missing("wl_seat", e))?,
-            im_manager: globals
+            compositor: globals
+                .bind(qh, 4..=6, ())
+                .map_err(|e| missing("wl_compositor", e))?,
+            shm: globals
                 .bind(qh, 1..=1, ())
-                .map_err(|e| missing("the input-method protocol (zwp_input_method_manager_v2)", e))?,
-            vk_manager: globals
-                .bind(qh, 1..=1, ())
-                .map_err(|e| missing("the virtual-keyboard protocol (zwp_virtual_keyboard_manager_v1)", e))?,
+                .map_err(|e| missing("wl_shm", e))?,
+            seat: globals
+                .bind(qh, 1..=9, ())
+                .map_err(|e| missing("wl_seat", e))?,
+            im_manager: globals.bind(qh, 1..=1, ()).map_err(|e| {
+                missing("the input-method protocol (zwp_input_method_manager_v2)", e)
+            })?,
+            vk_manager: globals.bind(qh, 1..=1, ()).map_err(|e| {
+                missing(
+                    "the virtual-keyboard protocol (zwp_virtual_keyboard_manager_v1)",
+                    e,
+                )
+            })?,
             fractional: globals.bind(qh, 1..=1, ()).ok(),
             viewporter: globals.bind(qh, 1..=1, ()).ok(),
         })
@@ -351,8 +397,14 @@ impl Popup {
         surface.set_input_region(Some(&region));
         region.destroy();
         let role = im.get_input_popup_surface(&surface, qh, ());
-        let viewport = g.viewporter.as_ref().map(|v| v.get_viewport(&surface, qh, ()));
-        let fractional = g.fractional.as_ref().map(|f| f.get_fractional_scale(&surface, qh, ()));
+        let viewport = g
+            .viewporter
+            .as_ref()
+            .map(|v| v.get_viewport(&surface, qh, ()));
+        let fractional = g
+            .fractional
+            .as_ref()
+            .map(|f| f.get_fractional_scale(&surface, qh, ()));
         Popup {
             surface,
             _role: role,
@@ -383,10 +435,19 @@ impl Popup {
         let lw = (image.width as f32 / scale).ceil() as i32;
         let lh = (image.height as f32 / scale).ceil() as i32;
         let (bw, bh) = match self.viewport {
-            Some(_) => ((lw as f32 * scale).round() as u32, (lh as f32 * scale).round() as u32),
-            None => ((lw * self.buffer_scale) as u32, (lh * self.buffer_scale) as u32),
+            Some(_) => (
+                (lw as f32 * scale).round() as u32,
+                (lh as f32 * scale).round() as u32,
+            ),
+            None => (
+                (lw * self.buffer_scale) as u32,
+                (lh * self.buffer_scale) as u32,
+            ),
         };
-        let Some(buffer) = self.buffers.fill(shm, qh, bw, bh, &image.pixels, image.width) else {
+        let Some(buffer) = self
+            .buffers
+            .fill(shm, qh, bw, bh, &image.pixels, image.width)
+        else {
             self.waiting = Some(image);
             return;
         };
@@ -474,7 +535,10 @@ impl State {
             Command::Active(active) => self.set_active(active),
             Command::Insert(request) => self.insert(request),
             Command::Frame { seq, image } => {
-                if seq == self.render_seq && !matches!(self.gate.overlay(), Overlay::Hidden) && self.field.is_some() {
+                if seq == self.render_seq
+                    && !matches!(self.gate.overlay(), Overlay::Hidden)
+                    && self.field.is_some()
+                {
                     self.popup.show(image, &self.g.shm, &self.qh);
                 }
             }
@@ -555,7 +619,11 @@ impl State {
 
     fn on_key(&mut self, time: u32, code: u32, pressed: bool) {
         let start = Instant::now();
-        let state = if pressed { KeyState::Pressed } else { KeyState::Released } as u32;
+        let state = if pressed {
+            KeyState::Pressed
+        } else {
+            KeyState::Released
+        } as u32;
         let Some(kb) = &self.keyboard else {
             if self.vk_keymap {
                 self.vk.key(time, code, state);
@@ -585,13 +653,20 @@ impl State {
     }
 
     fn insert(&mut self, request: InsertRequest) {
-        let done = |outcome| Event::InsertDone { id: request.id, outcome };
+        let done = |outcome| Event::InsertDone {
+            id: request.id,
+            outcome,
+        };
         let Some(field) = &self.field else {
-            self.send(done(InsertOutcome::Failed("no text field has focus".into())));
+            self.send(done(InsertOutcome::Failed(
+                "no text field has focus".into(),
+            )));
             return;
         };
         if field.id != request.field {
-            self.send(done(InsertOutcome::Failed("the text field lost focus".into())));
+            self.send(done(InsertOutcome::Failed(
+                "the text field lost focus".into(),
+            )));
             return;
         }
         let confirmable = field.surrounding.is_some();
@@ -627,7 +702,10 @@ impl State {
     fn run_timers(&mut self, now: Instant) {
         let events = &self.events;
         let ask = self.commits.due(now, |id| {
-            let _ = events.send(Event::InsertDone { id, outcome: InsertOutcome::Unknown });
+            let _ = events.send(Event::InsertDone {
+                id,
+                outcome: InsertOutcome::Unknown,
+            });
         });
         if ask {
             self.im.commit_string(String::new());
@@ -643,8 +721,11 @@ impl State {
     fn done(&mut self) {
         self.serial = self.serial.wrapping_add(1);
         let p = &self.pending;
-        let reported =
-            p.activate.is_some() || p.surrounding.is_some() || p.content.is_some() || p.caused_by_us.is_some() || p.rect;
+        let reported = p.activate.is_some()
+            || p.surrounding.is_some()
+            || p.content.is_some()
+            || p.caused_by_us.is_some()
+            || p.rect;
         self.apply_pending();
         // Chromium sends its next state only after a `done` whose serial
         // matches its count of commits, and niri, like wlroots, sends the
@@ -681,7 +762,10 @@ impl State {
             if field.surrounding.as_ref() == Some(&s) {
                 self.commits.unchanged(Instant::now());
             } else {
-                let old_before = field.surrounding.as_ref().map(|o| o.full_before().to_owned());
+                let old_before = field
+                    .surrounding
+                    .as_ref()
+                    .map(|o| o.full_before().to_owned());
                 moved = old_before.as_deref() != Some(s.full_before()) || s.cursor != s.anchor;
                 field.surrounding = Some(s);
                 changed = true;
@@ -711,14 +795,24 @@ impl State {
             let before = field.surrounding.as_ref().map_or("", |s| s.full_before());
             let events = &self.events;
             self.commits.changed(before, |id| {
-                let _ = events.send(Event::InsertDone { id, outcome: InsertOutcome::Inserted });
+                let _ = events.send(Event::InsertDone {
+                    id,
+                    outcome: InsertOutcome::Inserted,
+                });
             });
         }
-        if moved && self.keys_since_change == 0 && !ours && matches!(self.gate.overlay(), Overlay::Suggestion(_)) {
+        if moved
+            && self.keys_since_change == 0
+            && !ours
+            && matches!(self.gate.overlay(), Overlay::Suggestion(_))
+        {
             // The caret moved without a key: a click, or the app changed the
             // text. The suggestion no longer applies here.
             self.gate.set_overlay(Overlay::Hidden);
-            self.send(Event::Dismissed { field: id, reason: DismissReason::CaretMoved });
+            self.send(Event::Dismissed {
+                field: id,
+                reason: DismissReason::CaretMoved,
+            });
         }
         self.keys_since_change = 0;
         if self.active {
@@ -755,15 +849,24 @@ impl State {
         self.popup.hide();
         let events = &self.events;
         self.commits.clear(|id| {
-            let _ = events.send(Event::InsertDone { id, outcome: InsertOutcome::Unknown });
+            let _ = events.send(Event::InsertDone {
+                id,
+                outcome: InsertOutcome::Unknown,
+            });
         });
         self.send(Event::Blur);
     }
 
     fn app_info(&mut self) -> AppInfo {
-        let Some(t) = self.activated.and_then(|i| self.toplevels.get(i)) else { return AppInfo::default() };
+        let Some(t) = self.activated.and_then(|i| self.toplevels.get(i)) else {
+            return AppInfo::default();
+        };
         let (id, title) = (t.app_id.clone(), t.title.clone());
-        let name = self.names.entry(id.clone()).or_insert_with(|| apps::name(&id)).clone();
+        let name = self
+            .names
+            .entry(id.clone())
+            .or_insert_with(|| apps::name(&id))
+            .clone();
         AppInfo { id, name, title }
     }
 
@@ -805,7 +908,14 @@ impl State {
 }
 
 impl Dispatch<WlRegistry, GlobalListContents> for State {
-    fn event(_: &mut Self, _: &WlRegistry, _: wl_registry::Event, _: &GlobalListContents, _: &Connection, _: &QueueHandle<Self>) {
+    fn event(
+        _: &mut Self,
+        _: &WlRegistry,
+        _: wl_registry::Event,
+        _: &GlobalListContents,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
     }
 }
 
@@ -834,14 +944,26 @@ impl Dispatch<ZwpInputMethodV2, ()> for State {
         match event {
             E::Activate => {
                 // Activation resets every other pending value.
-                state.pending = Pending { activate: Some(true), ..Pending::default() };
+                state.pending = Pending {
+                    activate: Some(true),
+                    ..Pending::default()
+                };
             }
             E::Deactivate => state.pending.activate = Some(false),
-            E::SurroundingText { text, cursor, anchor } => {
-                state.pending.surrounding = Some(Surrounding { text, cursor, anchor });
+            E::SurroundingText {
+                text,
+                cursor,
+                anchor,
+            } => {
+                state.pending.surrounding = Some(Surrounding {
+                    text,
+                    cursor,
+                    anchor,
+                });
             }
             E::TextChangeCause { cause } => {
-                state.pending.caused_by_us = Some(matches!(cause, WEnum::Value(ChangeCause::InputMethod)));
+                state.pending.caused_by_us =
+                    Some(matches!(cause, WEnum::Value(ChangeCause::InputMethod)));
             }
             E::ContentType { hint, purpose } => {
                 let hint = match hint {
@@ -872,15 +994,28 @@ impl Dispatch<ZwpInputMethodKeyboardGrabV2, ()> for State {
     ) {
         use zwp_input_method_keyboard_grab_v2::Event as E;
         match event {
-            E::Key { time, key, state: key_state, .. } => {
+            E::Key {
+                time,
+                key,
+                state: key_state,
+                ..
+            } => {
                 state.on_key(time, key, key_state == WEnum::Value(KeyState::Pressed));
             }
-            E::Modifiers { mods_depressed, mods_latched, mods_locked, group, .. } => {
+            E::Modifiers {
+                mods_depressed,
+                mods_latched,
+                mods_locked,
+                group,
+                ..
+            } => {
                 if let Some(kb) = &mut state.keyboard {
                     kb.update_mask(mods_depressed, mods_latched, mods_locked, group);
                 }
                 if state.vk_keymap {
-                    state.vk.modifiers(mods_depressed, mods_latched, mods_locked, group);
+                    state
+                        .vk
+                        .modifiers(mods_depressed, mods_latched, mods_locked, group);
                 }
             }
             E::Keymap { format, fd, size } => {
@@ -888,7 +1023,9 @@ impl Dispatch<ZwpInputMethodKeyboardGrabV2, ()> for State {
                     log::warn!("the keyboard grab sent a keymap format other than xkb v1");
                     return;
                 }
-                state.vk.keymap(KeymapFormat::XkbV1 as u32, fd.as_fd(), size);
+                state
+                    .vk
+                    .keymap(KeymapFormat::XkbV1 as u32, fd.as_fd(), size);
                 state.vk_keymap = true;
                 state.keyboard = Keyboard::new(fd, size, state.keyboard.take());
             }
@@ -906,7 +1043,13 @@ impl Dispatch<ZwpInputPopupSurfaceV2, ()> for State {
         _: &Connection,
         _: &QueueHandle<Self>,
     ) {
-        if let zwp_input_popup_surface_v2::Event::TextInputRectangle { x, y, width, height } = event {
+        if let zwp_input_popup_surface_v2::Event::TextInputRectangle {
+            x,
+            y,
+            width,
+            height,
+        } = event
+        {
             log::debug!("text input rectangle relative to the popup: {x},{y} {width}x{height}");
             state.pending.rect = true;
         }
@@ -914,7 +1057,14 @@ impl Dispatch<ZwpInputPopupSurfaceV2, ()> for State {
 }
 
 impl Dispatch<WlSurface, ()> for State {
-    fn event(state: &mut Self, _: &WlSurface, event: wl_surface::Event, _: &(), _: &Connection, _: &QueueHandle<Self>) {
+    fn event(
+        state: &mut Self,
+        _: &WlSurface,
+        event: wl_surface::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
         if let wl_surface::Event::PreferredBufferScale { factor } = event
             && factor != state.popup.buffer_scale
         {
@@ -945,7 +1095,14 @@ impl Dispatch<WpFractionalScaleV1, ()> for State {
 }
 
 impl Dispatch<WlBuffer, BufferId> for State {
-    fn event(state: &mut Self, _: &WlBuffer, event: wl_buffer::Event, id: &BufferId, _: &Connection, _: &QueueHandle<Self>) {
+    fn event(
+        state: &mut Self,
+        _: &WlBuffer,
+        event: wl_buffer::Event,
+        id: &BufferId,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
         if let wl_buffer::Event::Release = event {
             state.popup.buffers.released(*id);
             if let Some(image) = state.popup.waiting.take() {
@@ -990,12 +1147,18 @@ impl Dispatch<ZwlrForeignToplevelHandleV1, ()> for State {
         _: &QueueHandle<Self>,
     ) {
         use zwlr_foreign_toplevel_handle_v1::Event as E;
-        let Some(i) = state.toplevels.iter().position(|t| &t.handle == handle) else { return };
+        let Some(i) = state.toplevels.iter().position(|t| &t.handle == handle) else {
+            return;
+        };
         match event {
             E::Title { title } => state.toplevels[i].title = title,
             E::AppId { app_id } => state.toplevels[i].app_id = app_id,
             E::State { state: bytes } => {
-                let activated = bytes.as_chunks::<4>().0.iter().any(|&c| u32::from_ne_bytes(c) == ACTIVATED);
+                let activated = bytes
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .any(|&c| u32::from_ne_bytes(c) == ACTIVATED);
                 state.toplevels[i].pending_activated = Some(activated);
             }
             E::Done => {
