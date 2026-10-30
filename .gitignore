@@ -1,6 +1,7 @@
 /target/
 node_modules/
 /app/ui/dist/
+/site/dist/
 *.gguf
 .DS_Store
 /app/gen/android/.gradle/

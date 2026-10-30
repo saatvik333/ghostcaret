@@ -1,0 +1,60 @@
+{
+  "readOn": "2026-10-30",
+  "rows": [
+    {
+      "name": "FlowIn",
+      "url": "https://flowin.so/pricing",
+      "price": "Free tier of 150 words and 10 AI replies a day after a 14-day trial; Pro $10.99 a month or $79.99 a year; one-time $129.99 with 12 months of updates",
+      "platforms": "macOS on Apple Silicon",
+      "linux": "Linux: not listed",
+      "openSource": "No",
+      "localModel": "Yes, plus cloud models",
+      "ownKey": "Only on the one-time license, and only for replies",
+      "account": "License key"
+    },
+    {
+      "name": "Cotypist",
+      "url": "https://cotypist.app/pricing",
+      "price": "Free tier of 100 accepted words a day; Plus 72 a year (one Mac); Pro 108 a year (three Macs); the page shows no currency symbol",
+      "platforms": "macOS (Apple Silicon)",
+      "linux": "Linux: not listed",
+      "openSource": "No",
+      "localModel": "On-device only",
+      "ownKey": "Not listed",
+      "account": "Not required"
+    },
+    {
+      "name": "TypeSeer",
+      "url": "https://typeseer.com/pricing.html",
+      "price": "No free tier; $3.99 a month, $34.99 a year or $79.99 once, per platform, two devices",
+      "platforms": "macOS 14+ (Apple Silicon), Windows 10/11",
+      "linux": "Linux: not listed",
+      "openSource": "No",
+      "localModel": "On-device only",
+      "ownKey": "Not listed",
+      "account": "Not required"
+    },
+    {
+      "name": "Lightkey",
+      "url": "https://www.lightkey.io/editions",
+      "price": "No free edition; Pro $49.95 a year or $229.95 once; Business $69.95 a year or $299.95 once",
+      "platforms": "Windows, plus Chrome and Edge extensions",
+      "linux": "Linux: not listed",
+      "openSource": "No",
+      "localModel": "Offline prediction",
+      "ownKey": "Not listed",
+      "account": "Not verified"
+    },
+    {
+      "name": "HyperWrite TypeAhead",
+      "url": "https://www.hyperwriteai.com/",
+      "price": "Premium $19.99 a month ($16 billed yearly); Ultra $44.99 a month ($29 billed yearly)",
+      "platforms": "Chrome extension only",
+      "linux": "Linux: only inside Chrome",
+      "openSource": "No",
+      "localModel": "Not listed",
+      "ownKey": "Not verified",
+      "account": "Required"
+    }
+  ]
+}

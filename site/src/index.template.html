@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<meta name="description" content="{{description}}">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f4ef">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111215">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+{{#if siteUrl}}<link rel="canonical" href="{{siteUrl}}">{{/if}}
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{name}}">
+<meta property="og:title" content="{{title}}">
+<meta property="og:description" content="{{description}}">
+{{#if siteUrl}}<meta property="og:url" content="{{siteUrl}}">
+<meta property="og:image" content="{{siteUrl}}og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="{{ogAlt}}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{title}}">
+<meta name="twitter:description" content="{{description}}">
+<meta name="twitter:image" content="{{siteUrl}}og.png">
+<meta name="twitter:image:alt" content="{{ogAlt}}">
+<meta name="twitter:site" content="@{{xHandle}}">{{/if}}
+<link rel="stylesheet" href="styles.css">
+<script src="demo.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap bar">
+    <a class="wordmark" href="#top" aria-label="{{name}}, back to the top">
+      <svg class="mark" viewBox="0 0 64 64" width="28" height="28" aria-hidden="true" focusable="false">
+        <rect width="64" height="64" rx="14" class="mark-bg"/>
+        <rect x="17" y="14" width="6" height="36" rx="3" class="mark-caret"/>
+        <rect x="29" y="29" width="18" height="6" rx="3" class="mark-ghost"/>
+        <rect x="51" y="29" width="6" height="6" rx="3" class="mark-ghost mark-ghost-2"/>
+      </svg>
+      <span>{{name}}</span>
+    </a>
+    <nav aria-label="Page sections">
+      <ul>
+        <li><a href="#demo">Try it</a></li>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#models">Models and privacy</a></li>
+        <li><a href="#platforms">Platforms</a></li>
+        <li><a href="#alternatives">Alternatives</a></li>
+        <li><a href="#testers">Early testers</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <div class="wrap hero" id="top">
+    <div class="hero-copy">
+      <p class="status"><span class="status-dot" aria-hidden="true"></span><span>In development. Nothing runs end to end yet, and there is nothing to download. Status as of <time datetime="{{statusDate}}">{{statusDateLong}}</time>.</span></p>
+      <h1>{{headline}}<span class="caret" aria-hidden="true"></span><span class="ghost-line">{{headlineGhost}}</span></h1>
+      <p class="lede">I'm building {{name}}. It's designed to suggest the rest of what you are typing as faint text at your cursor. Tab takes the next word, the backtick key takes all of it, and if you keep typing it steps aside.</p>
+      <p class="lede-2">You pick the model: one that runs on your own machine, or your own API key. {{#if licensePublished}}It is free and open source under {{license}}, with no account and no telemetry.{{else}}It is meant to be free, with no account and no telemetry, and it will be open source under {{license}}.{{/if}} {{#if repoUrl}}The source is on <a href="{{repoUrl}}">GitHub</a>.{{else}}The source is not public yet.{{/if}} Linux (Wayland) comes first.</p>
+      {{#if aiDisclosure}}<p class="lede-2">{{aiDisclosure}}</p>{{/if}}
+      <p class="actions">
+        <a class="btn btn-primary" href="{{xUrl}}">Follow the build on X</a>
+        {{#unless testerIsX}}<a class="btn btn-secondary" href="{{testerHref}}">Become an early tester</a>{{else}}<a class="btn btn-secondary" href="#testers">Become an early tester</a>{{/unless}}
+      </p>
+    </div>
+
+    <section class="demo" id="demo" aria-labelledby="demo-title">
+      <h2 id="demo-title">Try it</h2>
+      <p class="demo-note" id="demo-note">Demo with canned suggestions. The app runs a model on your own machine or uses your own key.</p>
+      <noscript><p class="demo-nojs">The demo needs JavaScript. The examples under “How it works” show the same suggestions at each length.</p></noscript>
+      <div class="demo-app" data-demo hidden>
+        <div class="demo-row" role="group" aria-label="Starting text">
+          <span class="demo-row-label" aria-hidden="true">Start from</span>
+          {{{starterButtons}}}
+          <button type="button" class="chip chip-quiet" data-clear>Clear</button>
+        </div>
+        <div class="field-wrap">
+          <label class="field-label" for="demo-field">Text field</label>
+          <div class="field">
+            <div class="field-mirror" aria-hidden="true"><span data-typed></span><span class="ghost" data-ghost></span><span data-tail>&#8203;</span></div>
+            <textarea id="demo-field" data-field rows="6" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Pick a starter above, or type an opening line" aria-describedby="demo-note demo-keys demo-status"></textarea>
+          </div>
+        </div>
+        <p class="demo-status" id="demo-status" data-status aria-hidden="true">No suggestion yet. Pick a starter or type an opening line.</p>
+        <div class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-live></div>
+        <div class="demo-row demo-buttons" role="group" aria-label="Suggestion actions">
+          <button type="button" class="chip" data-action="word" aria-disabled="true">Take word</button>
+          <button type="button" class="chip" data-action="all" aria-disabled="true">Take all</button>
+          <button type="button" class="chip" data-action="more" aria-disabled="true">Show more</button>
+          <button type="button" class="chip" data-action="dismiss" aria-disabled="true">Dismiss</button>
+        </div>
+        <p class="demo-keys" id="demo-keys"><kbd>Tab</kbd> takes a word, <kbd>`</kbd> takes all, <kbd>Alt</kbd>+<kbd>→</kbd> shows more, <kbd>Esc</kbd> dismisses. Tab only does this while a suggestion is showing, and Shift+Tab always moves on.</p>
+        <fieldset class="length">
+          <legend>Suggestion length</legend>
+          <div class="segments">
+            <label class="seg"><input type="radio" name="length" value="word"><span>Word</span></label>
+            <label class="seg"><input type="radio" name="length" value="phrase"><span>Phrase</span></label>
+            <label class="seg"><input type="radio" name="length" value="sentence"><span>Sentence</span></label>
+            <label class="seg"><input type="radio" name="length" value="paragraph"><span>Paragraph</span></label>
+            <label class="seg"><input type="radio" name="length" value="auto" checked><span>Auto</span></label>
+          </div>
+          <div class="boldness">
+            <label for="demo-bold">Boldness</label>
+            <span class="boldness-end" aria-hidden="true">Careful</span>
+            <input type="range" id="demo-bold" data-bold min="1" max="5" step="1" value="3" aria-describedby="demo-bold-note">
+            <span class="boldness-end" aria-hidden="true">Bold</span>
+            <span class="boldness-note" id="demo-bold-note" data-bold-note>Boldness changes how far Auto goes.</span>
+          </div>
+        </fieldset>
+      </div>
+    </section>
+  </div>
+
+  <section class="section wrap" id="how" aria-labelledby="how-title">
+    <h2 id="how-title">How it works</h2>
+    <div class="body prose">
+      <p>This describes the design. Nothing runs end to end yet, so none of it has been tested.</p>
+      <p>After a short pause in your typing, a suggestion appears after the cursor, in the field's own font where the platform allows it. If the letters you type next match it, it gets shorter instead of starting over. Anything else removes it: a different letter, moving the cursor, clicking, switching apps or Esc.</p>
+
+      <h3>Keys</h3>
+      <dl class="rows keys">
+        <div><dt><kbd>Tab</kbd></dt><dd>Takes the next word. It is only captured while a suggestion is showing, so the app gets Tab as usual the rest of the time.</dd></div>
+        <div><dt><kbd>`</kbd></dt><dd>Takes the whole suggestion. To type a literal backtick while a suggestion is showing, press Esc first.</dd></div>
+        <div><dt><kbd>Alt</kbd>+<kbd>→</kbd></dt><dd>Shows more. It is Option+→ on macOS.</dd></div>
+        <div><dt><kbd>Esc</kbd></dt><dd>Dismisses the suggestion.</dd></div>
+      </dl>
+      <p>All of them can be changed in settings.</p>
+
+      <h3>How much it suggests</h3>
+      <p>You set the most a suggestion may show. The demo above has the same control.</p>
+      <dl class="rows">
+        <div><dt>Word</dt><dd>Stops at the end of the next word.</dd></div>
+        <div><dt>Phrase</dt><dd>Stops at a natural pause such as a comma or a conjunction, usually 3 to 6 words.</dd></div>
+        <div><dt>Sentence</dt><dd>Stops at the end of the sentence.</dd></div>
+        <div><dt>Paragraph</dt><dd>Stops at the end of the paragraph, or at a word cap you set.</dd></div>
+        <div><dt>Auto</dt><dd>Stops where the model's confidence drops below your boldness setting. This is the default.</dd></div>
+      </dl>
+      <p>Boldness is a slider from careful to bold. Auto also has a ceiling that depends on the kind of app: up to a sentence in chat, up to a paragraph in email, documents and notes, and one word in search boxes. Each app can have its own length and ceiling, or be switched off.</p>
+      {{{exampleFigure}}}
+
+      <h3>Where it stays quiet</h3>
+      <ul>
+        <li>Password and other secure fields.</li>
+        <li>Address bars.</li>
+        <li>Code editors, unless you turn it on for that app.</li>
+        <li>A terminal at a plain shell prompt, so Tab keeps completing commands. It should work for prose inside terminal apps.</li>
+        <li>An empty field, until you have typed something.</li>
+        <li>Anywhere the model is less sure than your boldness setting asks for.</li>
+      </ul>
+
+      <h3>{{replyName}}</h3>
+      <p>Tap the right Alt key on its own. In a chat or email reply box, {{name}} reads the visible conversation and offers three short directions, like “accept and suggest Tuesday”, plus a field for your own. Picking one writes a draft into a preview card, and you accept it into the text box, edit the direction or close the card. With text selected, the same key opens a card with Fix, Rephrase, Shorten, Expand, Translate and Change tone, plus actions you define. Accepting replaces the selection, and one undo brings the original back.</p>
+      <p>It shows exactly what will be inserted, and it never sends anything or presses Return. If it can't read the conversation it says so, and you can type a direction yourself. Reading a screenshot is off by default. On phones, keyboards can't see the rest of the screen, so replies use the text in the field, your selection and, if you allow it, the clipboard.</p>
+    </div>
+  </section>
+
+  <section class="section wrap" id="models" aria-labelledby="models-title">
+    <h2 id="models-title">Models and privacy</h2>
+    <div class="body prose">
+      <p>Same caveat as above: this is the design, and none of it is built end to end yet.</p>
+      <div class="pair">
+        <div>
+          <h3>A local model</h3>
+          <p>Inference runs on your machine through llama.cpp, and any GGUF file works. Setup checks your memory first. With 16 GB or more it offers the standard model, about 3 GB. With less it offers a smaller one, or suggests using a key. Downloads resume after an interruption and are checked against a published hash before use.</p>
+        </div>
+        <div>
+          <h3>Your own API key</h3>
+          <p>Pick a provider: any OpenAI-compatible endpoint (OpenAI, OpenRouter, Groq, Together, Ollama, LM Studio, llama-server, vLLM and similar), Anthropic, or Gemini. Paste the key and test it with one request. Keys go in the system keychain. Cloud use shows a request counter, with an optional daily cap.</p>
+        </div>
+      </div>
+      <p>Autocomplete and replies each have their own model setting, so a local model for one and a key for the other is fine. On iOS the keyboard extension has too little memory for a local model, so there it will use a key only.</p>
+
+      <h3>What leaves your machine</h3>
+      <ul>
+        <li>With a local model, the design keeps your text on the device.</li>
+        <li>With your own key, only the context for that one request leaves, after a filter removes API keys, access tokens, card numbers and <code>password=</code> style pairs. A “What was sent” view lists every cloud request from the session: the provider, the model and the exact text. It lives in memory and is cleared when you quit.</li>
+        <li>It is built to send no telemetry. The network is for model downloads you start, the update check (which you can turn off) and the provider you set up.</li>
+        <li>Password and other secure fields are not read. Password managers are on the blocked-apps list by default, and you can add any app.</li>
+        <li>Screenshot reading, the clipboard and style learned from your sent messages are off by default.</li>
+        <li>Text read from the screen, the clipboard or a conversation is treated as data, so instructions inside it can't change what {{name}} does.</li>
+      </ul>
+      <p>The network test that would check the privacy points is planned, not written. {{#if repoUrl}}The source is on <a href="{{repoUrl}}">GitHub</a> if you want to follow along.{{else}}The source isn't public yet.{{/if}}</p>
+    </div>
+  </section>
+
+  <section class="section wrap" id="platforms" aria-labelledby="platforms-title">
+    <h2 id="platforms-title">Platforms and status</h2>
+    <div class="body">
+      <p class="prose-p">Nothing is released and nothing runs end to end yet, so each card below is the design for that platform. Linux (Wayland) comes first. Windows and Android are in development too, and macOS and iOS come later.</p>
+      <div class="cards">
+        <article class="card">
+          <h3>Linux (Wayland)</h3>
+          <p class="tag tag-dev">In development</p>
+          <p>{{name}} is designed as the input method itself, so the suggestion appears in a small panel at the cursor. That needs a compositor that supports the Wayland input-method protocol. niri 26.04 does, and it is what I'm building on. The design also lists sway, Hyprland, river and labwc, but none of them is tested yet. KDE Plasma, GNOME and X11 come later.</p>
+          <p>Only one input method can be active, so it can't run next to fcitx5 or IBus. Apps need <code>text-input-v3</code>, and I expect Chromium and Electron apps to need <code>--enable-wayland-ime</code>.</p>
+        </article>
+        <article class="card">
+          <h3>Windows</h3>
+          <p class="tag tag-dev">In development</p>
+          <p>Faint text drawn at the cursor. It can't reach apps running as administrator unless {{name}} runs elevated as well.</p>
+        </article>
+        <article class="card">
+          <h3>Android</h3>
+          <p class="tag tag-dev">In development</p>
+          <p>A keyboard of its own: you switch to it, and suggestions appear in it. Keyboards can't read the rest of the screen, so replies work from the field text, the selection and, optionally, the clipboard.</p>
+        </article>
+        <article class="card">
+          <h3>macOS</h3>
+          <p class="tag tag-later">Later</p>
+          <p>Faint text drawn at the cursor. It needs the Accessibility permission and pauses while another app holds Secure Input. Where a browser hides the cursor position, a card above the field is used instead.</p>
+        </article>
+        <article class="card">
+          <h3>iOS and iPadOS</h3>
+          <p class="tag tag-later">Later</p>
+          <p>A keyboard extension that uses a cloud key only, because extensions have too little memory for a local model. It needs Full Access so the keyboard can reach your provider.</p>
+        </article>
+      </div>
+
+      <div class="prose">
+        <h3>What a release has to meet</h3>
+      </div>
+      <div class="note" role="note">
+        <p class="note-title">Targets, not measurements</p>
+        <p>These are the numbers I want a release to meet. I haven't measured any of them, because nothing runs end to end yet, and the reference machines for Linux and Windows aren't chosen. A release that misses one doesn't ship.</p>
+      </div>
+      <ul class="targets">
+        <li><span class="num">100 ms</span><span>From your last keystroke to a visible suggestion, at the median, with a local model. 250 ms at the 95th percentile.</span></li>
+        <li><span class="num">50 µs</span><span>Time in the key handler, at the 99th percentile. Typing never waits for a suggestion.</span></li>
+        <li><span class="num">0 CPU</span><span>While you are not typing. No polling timers, only operating-system events.</span></li>
+        <li><span class="num">100 MB</span><span>Memory across all processes with no model loaded.</span></li>
+        <li><span class="num">40 MB</span><span>Installer size, models excluded.</span></li>
+      </ul>
+      <p class="prose-p">I want each release to come with its benchmark report: keystrokes saved and the share of wrong suggestions. Any comparison with another tool will link to the test it came from.</p>
+    </div>
+  </section>
+
+  <section class="section section-wide wrap" id="alternatives" aria-labelledby="alternatives-title">
+    <h2 id="alternatives-title">Alternatives</h2>
+    <div class="body">
+      <p class="prose-p">Several tools already complete text inline on macOS, on Windows and in the browser. The table lists what each one says on its own pages. It says nothing about how well any of them predict, and I have no measurements for {{name}} yet.</p>
+      <p class="scroll-hint">The table scrolls sideways on narrow screens.</p>
+      {{{comparisonTable}}}
+      <p class="fine table-note">Prices and features from each vendor's own pages, {{comparedOnLong}}. They change, so check the linked page before relying on a figure. The {{name}} row is planned: nothing runs end to end yet.</p>
+      <p class="prose-p">Open-source tools exist too: <a href="https://github.com/FuJacob/cotabby">Cotabby</a> (AGPL-3.0), <a href="https://github.com/johnbean393/KeyType">KeyType</a>, <a href="https://github.com/nikiomori/Pretype">Pretype</a> and <a href="https://github.com/jacobbourne/shadowtype">Shadowtype</a> (MIT) on macOS, and <a href="https://github.com/simoabid/MindFlow">MindFlow</a> (MIT, an early project for IBus) on Linux. macOS 14 and later, Windows and phone keyboards also have prediction built in.</p>
+    </div>
+  </section>
+
+  <section class="section wrap" id="testers" aria-labelledby="testers-title">
+    <h2 id="testers-title">Early testers</h2>
+    <div class="body prose">
+      <p>There is nothing to test yet. If you would try early builds on Linux, Windows or Android once they exist, tell me your operating system (and your compositor, on Linux) and the apps you type in most. That decides which apps I test first.</p>
+      <p class="actions">
+        {{#unless testerIsX}}<a class="btn btn-primary" href="{{testerHref}}">Become an early tester</a>
+        <a class="btn btn-secondary" href="{{xUrl}}">Follow the build on X</a>{{else}}<a class="btn btn-primary" href="{{xUrl}}">Follow the build on X</a>{{/unless}}
+      </p>
+      {{#if testerIsX}}<p>Until there is a public repository, X is the place: follow along and reply to a post.</p>{{/if}}
+      <p class="fine">This site has no sign-up form, analytics or cookies. The links above leave this site for {{linkSites}}, and their own policies apply.</p>
+    </div>
+  </section>
+
+  <section class="section wrap" id="faq" aria-labelledby="faq-title">
+    <h2 id="faq-title">Questions</h2>
+    <div class="body prose">
+      <details>
+        <summary>Can I download it?</summary>
+        <p>No. Nothing runs end to end yet.</p>
+      </details>
+      <details>
+        <summary>What will it cost?</summary>
+        <p>It is meant to be free, with no paid tier and no account. If you use your own API key, your provider bills you at its own rates.</p>
+      </details>
+      <details>
+        <summary>Is it open source?</summary>
+        <p>{{#if licensePublished}}Yes, under {{license}}.{{else}}It will be, under {{license}}.{{/if}} {{#if repoUrl}}The source is on <a href="{{repoUrl}}">GitHub</a>.{{else}}The source isn't public yet.{{/if}}</p>
+      </details>
+      {{#if aiDisclosure}}<details>
+        <summary>Who is writing it?</summary>
+        <p>{{aiDisclosure}} The design is mine, and the code is written from public operating-system documentation and APIs.</p>
+      </details>{{/if}}
+      <details>
+        <summary>Will it work in my app?</summary>
+        <p>The goal is the places people write: browser text boxes, chat, notes and documents, terminals and email. I don't know yet which apps will work. The plan is a checklist of about 20 apps per platform. Where placing the suggestion fails in an app, it falls back to a card, and the release notes list the failure.</p>
+      </details>
+      <details>
+        <summary>Does what I type go to a server?</summary>
+        <p>With a local model, the design keeps it on your device. With your own key, the context for each request goes to that provider after the secret filter has run, and the “What was sent” view shows exactly what.</p>
+      </details>
+      <details>
+        <summary>Can it run next to fcitx5 or IBus?</summary>
+        <p>No. On Linux it is designed as an input method itself, and only one input method can be active at a time.</p>
+      </details>
+      {{#if nameIsWorkingTitle}}<details>
+        <summary>Is the name final?</summary>
+        <p>No. The name isn't decided yet, and {{name}} is the working title.</p>
+      </details>{{/if}}
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap foot">
+    <p>{{name}} · {{#if licensePublished}}license {{license}}{{else}}planned license {{license}}{{/if}} · status as of {{statusDateLong}}</p>
+    <ul>
+      <li><a href="{{xUrl}}">X (@{{xHandle}})</a></li>
+      {{#if repoUrl}}<li><a href="{{repoUrl}}">Source on GitHub</a></li>{{/if}}
+      {{#unless testerIsX}}<li><a href="{{testerHref}}">Early testers</a></li>{{/unless}}
+    </ul>
+    <p class="fine">No analytics, cookies or third-party requests on this page. Everything it uses is served from this site.</p>
+  </div>
+</footer>
+</body>
+</html>

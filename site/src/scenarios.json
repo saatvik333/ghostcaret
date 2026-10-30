@@ -1,0 +1,23 @@
+[
+  {
+    "id": "email",
+    "label": "Email reply",
+    "ceiling": "paragraph",
+    "starter": "Hi Sam,\n\nThanks for sending the draft over. I read it this morning",
+    "text": "Hi Sam,\n\nThanks for sending the draft over. I read it this morning and the structure works well, though the second section could be shorter. Could we move our call to Thursday afternoon? I'm free after two.\n\nI'll bring the updated numbers with me."
+  },
+  {
+    "id": "chat",
+    "label": "Chat message",
+    "ceiling": "sentence",
+    "starter": "Sounds good, I'll take a look",
+    "text": "Sounds good, I'll take a look after lunch and leave comments in the doc. If anything blocks you before then, message me and I'll sort it out. Otherwise let's sync tomorrow morning."
+  },
+  {
+    "id": "notes",
+    "label": "Notes",
+    "ceiling": "paragraph",
+    "starter": "Packing list for the weekend\n\nThe forecast",
+    "text": "Packing list for the weekend\n\nThe forecast shows rain on Saturday, so the waterproof jackets go in first, then the boots, and anything that needs to stay dry goes in the blue bag. Sunday looks clear, which means the umbrellas can stay at home.\n\nTo buy before we leave: batteries for the lamp and a spare charging cable."
+  }
+]

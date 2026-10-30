@@ -1,0 +1,16 @@
+{
+  "name": "Ghostcaret",
+  "nameIsWorkingTitle": false,
+  "headline": "Autocomplete at your cursor",
+  "headlineGhost": ", on a model you choose.",
+  "description": "Autocomplete that suggests what you type next, using a local model or your own API key. Free and open source (MPL-2.0). Pre-alpha, Linux first, no download yet.",
+  "replyName": "Reply & rewrite",
+  "aiDisclosure": "Most of the code is written with AI coding agents under my direction.",
+  "xHandle": "saatvik333",
+  "repoUrl": "https://github.com/saatvik333/ghostcaret",
+  "testerUrl": "https://github.com/saatvik333/ghostcaret/discussions",
+  "siteUrl": "https://saatvik333.github.io/ghostcaret/",
+  "statusDate": "2026-10-30",
+  "license": "MPL-2.0",
+  "licensePublished": true
+}
