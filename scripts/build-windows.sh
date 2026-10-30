@@ -74,7 +74,7 @@ bun run tauri build --no-bundle --runner cargo-xwin --target "$TARGET" \
 #    llama.cpp build it was linked against (a development fallback); that picks
 #    the right one when stale builds from other feature sets sit in the target dir.
 backends=$(grep -a -o -m1 "$REL/build/llama-cpp-sys-2-[0-9a-f]*/out/backends" \
-    "$REL/ghostcaret.exe" | head -n1 || true)
+    "$REL/Ghostcaret.exe" | head -n1 || true)
 if [ ! -d "${backends:-}" ]; then
     backends=$(find "$REL/build" -type d -path '*/llama-cpp-sys-2-*/out/backends' \
         -printf '%T@ %p\n' | sort -rn | head -n1 | cut -d' ' -f2-)
@@ -86,7 +86,7 @@ echo "staged $(ls "$STAGE" | wc -l) DLLs from $llama_out"
 
 # The bundler stamps the exe it packages, so take the portable copy first.
 rm -rf "$OUT" && mkdir -p "$OUT/portable"
-cp "$REL/ghostcaret.exe" "$OUT/portable/Ghostcaret.exe"
+cp "$REL/Ghostcaret.exe" "$OUT/portable/"
 cp "$STAGE"/*.dll "$OUT/portable/"
 
 # 3. The installer ships the DLLs beside the exe.
